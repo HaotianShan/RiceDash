@@ -1,14 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Loader } from "@googlemaps/js-api-loader";
-
-// Declare google namespace for TypeScript
-declare global {
-  interface Window {
-    google: typeof google;
-  }
-}
+import { useEffect, useState } from "react";
 
 interface GoogleMapProps {
   center?: { lat: number; lng: number };
@@ -19,141 +11,103 @@ interface GoogleMapProps {
     label?: string;
   }>;
   className?: string;
+  showDirections?: boolean;
+  origin?: { lat: number; lng: number } | string;
+  destination?: { lat: number; lng: number };
+  travelMode?: 'driving' | 'walking' | 'bicycling' | 'transit';
 }
-
-// Rice University serveries coordinates
-const RICE_SERVERIES = [
-  { name: "Baker Servery", position: { lat: 29.7164, lng: -95.4018 } },
-  { name: "North Servery", position: { lat: 29.7184, lng: -95.4018 } },
-  { name: "Seibel Servery", position: { lat: 29.7174, lng: -95.4008 } },
-  { name: "South Servery", position: { lat: 29.7164, lng: -95.4008 } },
-  { name: "West Servery", position: { lat: 29.7174, lng: -95.4028 } },
-];
 
 export default function GoogleMap({ 
   center = { lat: 29.7174, lng: -95.4018 }, // Rice University center
   zoom = 16,
   markers = [],
-  className = "w-full h-full"
+  className = "w-full h-full",
+  showDirections = false,
+  origin,
+  destination,
+  travelMode = 'driving'
 }: GoogleMapProps) {
-  const mapRef = useRef<HTMLDivElement>(null);
-  const [map, setMap] = useState<google.maps.Map | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [mapUrl, setMapUrl] = useState<string>("");
 
   useEffect(() => {
     // Get user's current location
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setUserLocation({
+          const userPos = {
             lat: position.coords.latitude,
             lng: position.coords.longitude,
-          });
+          };
+          setUserLocation(userPos);
         },
         (error) => {
           console.warn("Could not get user location:", error);
-          // Use default Rice University location
-          setUserLocation(center);
+          setUserLocation(null);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 300000
         }
       );
     } else {
-      setUserLocation(center);
+      setUserLocation(null);
     }
   }, [center]);
 
   useEffect(() => {
-    if (!mapRef.current || !userLocation) return;
+    if (!userLocation && !(showDirections && origin && destination)) return;
 
-    const initializeMap = async () => {
-      try {
-        const loader = new Loader({
-          apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
-          version: "weekly",
-          libraries: ["places"],
-        });
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    
+    if (!apiKey) {
+      setError("Google Maps API key is not configured. Please add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to your environment variables.");
+      setIsLoading(false);
+      return;
+    }
 
-        const { Map } = await loader.importLibrary("maps");
-        const { Marker } = await loader.importLibrary("marker");
+    try {
+      let baseUrl: string;
+      const params = new URLSearchParams({
+        key: apiKey,
+        maptype: "roadmap"
+      });
 
-        // Create map
-        const mapInstance = new Map(mapRef.current!, {
-          center: userLocation,
-          zoom: zoom,
-          mapTypeId: google.maps.MapTypeId.ROADMAP,
-          styles: [
-            {
-              featureType: "poi",
-              elementType: "labels",
-              stylers: [{ visibility: "off" }],
-            },
-          ],
-        });
-
-        setMap(mapInstance);
-
-        // Add user location marker
-        new Marker({
-          position: userLocation,
-          map: mapInstance,
-          title: "Your Location",
-          label: "📍",
-          icon: {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 8,
-            fillColor: "#4285F4",
-            fillOpacity: 1,
-            strokeColor: "#ffffff",
-            strokeWeight: 2,
-          },
-        });
-
-        // Add servery markers
-        RICE_SERVERIES.forEach((servery) => {
-          new Marker({
-            position: servery.position,
-            map: mapInstance,
-            title: servery.name,
-            label: "🍽️",
-            icon: {
-              path: google.maps.SymbolPath.CIRCLE,
-              scale: 6,
-              fillColor: "#FF6B35",
-              fillOpacity: 1,
-              strokeColor: "#ffffff",
-              strokeWeight: 2,
-            },
-          });
-        });
-
-        // Add custom markers if provided
-        markers.forEach((marker) => {
-          new Marker({
-            position: marker.position,
-            map: mapInstance,
-            title: marker.title,
-            label: marker.label || "📍",
-          });
-        });
-
-        setIsLoading(false);
-      } catch (err) {
-        console.error("Error loading Google Maps:", err);
-        setError("Failed to load map. Please check your Google Maps API key.");
-        setIsLoading(false);
+      if (showDirections && origin && (destination || userLocation)) {
+        // Use directions mode to show route from origin to destination
+        baseUrl = "https://www.google.com/maps/embed/v1/directions";
+        const resolvedOrigin = typeof origin === 'string' ? origin : `${origin.lat},${origin.lng}`;
+        params.append('origin', resolvedOrigin);
+        const resolvedDestination = destination ?? userLocation!;
+        params.append('destination', `${resolvedDestination.lat},${resolvedDestination.lng}`);
+        params.append('mode', travelMode);
+        params.append('units', 'imperial'); // Use imperial units for US
+      } else {
+        // Use view mode to show Rice University campus
+        baseUrl = "https://www.google.com/maps/embed/v1/view";
+        params.append('center', "29.7174,-95.4018"); // Rice University center coordinates
+        params.append('zoom', "17"); // Closer zoom to see campus details
       }
-    };
 
-    initializeMap();
-  }, [userLocation, zoom, markers]);
+      const embedUrl = `${baseUrl}?${params.toString()}`;
+      setMapUrl(embedUrl);
+      setIsLoading(false);
+    } catch (err) {
+      console.error("Error creating map URL:", err);
+      setError("Failed to create map URL. Please check your configuration.");
+      setIsLoading(false);
+    }
+  }, [userLocation, zoom, markers, showDirections, origin, destination, travelMode]);
 
   if (isLoading) {
     return (
       <div className={`${className} bg-gray-100 flex items-center justify-center`}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading map...</p>
+          <p className="text-gray-600">Loading Google Maps...</p>
         </div>
       </div>
     );
@@ -164,7 +118,7 @@ export default function GoogleMap({
       <div className={`${className} bg-gray-100 flex items-center justify-center`}>
         <div className="text-center p-8">
           <div className="text-red-500 text-6xl mb-4">🗺️</div>
-          <p className="text-red-600 mb-2">Map Error</p>
+          <p className="text-red-600 mb-2">Google Maps Error</p>
           <p className="text-gray-600 text-sm">{error}</p>
           <div className="mt-4 p-4 bg-white rounded-lg shadow-md">
             <p className="text-sm text-gray-700">
@@ -174,7 +128,7 @@ export default function GoogleMap({
               }
             </p>
             <p className="text-xs text-gray-500 mt-2">
-              Rice University serveries are marked with 🍽️
+              Rice University serveries are located around the campus
             </p>
           </div>
         </div>
@@ -184,17 +138,20 @@ export default function GoogleMap({
 
   return (
     <div className={className}>
-      <div ref={mapRef} className="w-full h-full rounded-lg" />
-      <div className="absolute bottom-4 left-4 bg-white p-3 rounded-lg shadow-lg">
-        <div className="flex items-center gap-2 text-sm">
-          <span className="w-3 h-3 bg-blue-500 rounded-full"></span>
-          <span>Your Location</span>
-        </div>
-        <div className="flex items-center gap-2 text-sm mt-1">
-          <span className="w-3 h-3 bg-orange-500 rounded-full"></span>
-          <span>Rice Serveries</span>
-        </div>
-      </div>
+      {mapUrl && (
+        <iframe
+          src={mapUrl}
+          className="w-full h-full rounded-lg border-0"
+          style={{ border: 0 }}
+          allowFullScreen
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+          title="Google Maps - Rice University"
+        />
+      )}
+    
+
+      {/* Removed top-right servery and delivery overlay per design request */}
     </div>
   );
 }

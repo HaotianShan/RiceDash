@@ -1,316 +1,506 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import Navbar from "@/components/navbar";
+import { useState, useEffect, useMemo } from "react";
 import { SessionProvider } from "next-auth/react";
+import { Toaster, toast } from "sonner";
+import { 
+  MapPin, 
+  Clock, 
+  ShoppingCart, 
+  Plus, 
+  Minus, 
+  Trash2, 
+  UtensilsCrossed,
+  PlusCircle,
+  X
+} from "lucide-react";
+
+// UI Components (assuming these are from shadcn/ui)
+import Navbar from "@/components/navbar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { MapPin, Clock, ShoppingCart, Plus, Minus, Trash2 } from "lucide-react";
-import GoogleMap from "@/components/google-map";
+import MapSelector from "@/components/map-selector";
+import { Separator } from "@/components/ui/separator";
 
-// Define the servery types (matching database enum)
+// --- TYPE DEFINITIONS ---
 type ServeryName = "Baker" | "North" | "Seibel" | "South" | "West";
 
-// Define menu items structure
+// Rice University serveries coordinates
+const RICE_SERVERIES = [
+  { name: "Baker Servery", position: { lat: 29.7164, lng: -95.4018 } },
+  { name: "North Servery", position: { lat: 29.7184, lng: -95.4018 } },
+  { name: "Seibel Servery", position: { lat: 29.7174, lng: -95.4008 } },
+  { name: "South Servery", position: { lat: 29.7164, lng: -95.4008 } },
+  { name: "West Servery", position: { lat: 29.7174, lng: -95.4028 } },
+];
+
 interface MenuItem {
   id: string;
   name: string;
   category: string;
-  price?: number;
+  price?: number; // ignored in UI and pricing
 }
 
-// Define cart item structure
-interface CartItem {
-  id: string;
-  name: string;
-  category: string;
+interface CartItem extends MenuItem {
   quantity: number;
-  price: number;
 }
+
 
 // Define menu data for each servery
-const menuData: Record<ServeryName, { breakfast: MenuItem[]; lunchDinner: MenuItem[] }> = {
-  "Baker": {
-    breakfast: [
-      { id: "plant-egg-scramble", name: "Plant-based egg scramble", category: "Plant-based Options", price: 3.50 },
-      { id: "plant-tacos", name: "Plant-based tacos", category: "Plant-based Options", price: 4.00 },
-      { id: "plant-rice", name: "Plant-based rice", category: "Plant-based Options", price: 2.50 },
-      { id: "plant-beans", name: "Plant-based beans and plantains", category: "Plant-based Options", price: 3.00 },
-      { id: "scrambled-eggs", name: "Scrambled eggs", category: "Traditional", price: 2.75 },
-      { id: "egg-whites", name: "Egg whites", category: "Traditional", price: 2.50 },
-      { id: "bacon", name: "Bacon", category: "Traditional", price: 3.25 },
-      { id: "sausage", name: "Sausage patties", category: "Traditional", price: 3.00 },
-      { id: "tacos", name: "Grab-n-go tacos and sandwiches", category: "Traditional", price: 4.50 },
-      { id: "biscuits", name: "Biscuits and gravy", category: "Traditional", price: 3.75 },
-      { id: "yogurt", name: "Yogurt and Fruit Bar", category: "Healthy Options", price: 2.25 },
-      { id: "oatmeal", name: "Warm oatmeal or grits", category: "Healthy Options", price: 2.00 },
-      { id: "muffins", name: "Fresh muffins and pastries", category: "Bakery", price: 1.75 }
-    ],
-    lunchDinner: [
-      { id: "deli", name: "Self-serve deli sandwich station", category: "Deli", price: 5.50 },
-      { id: "soup-salad", name: "Soup & Salad Station", category: "Healthy Options", price: 4.25 },
-      { id: "grill-chicken", name: "Halal chicken", category: "Grill", price: 6.00 },
-      { id: "fries", name: "French fries", category: "Grill", price: 2.50 },
-      { id: "plant-burger", name: "Plant-based burgers", category: "Grill", price: 5.75 },
-      { id: "baked-potato", name: "Baked potatoes", category: "Grill", price: 3.50 },
-      { id: "sweet-potato", name: "Sweet potatoes", category: "Grill", price: 3.75 },
-      { id: "pizza", name: "Selection of pizza", category: "Pizza & Pasta", price: 4.50 },
-      { id: "pasta", name: "Pasta and sauces", category: "Pizza & Pasta", price: 5.00 },
-      { id: "sweets", name: "Cookies, brownies, cakes and pies", category: "Desserts", price: 2.25 }
-    ]
-  },
-  "North": {
-    breakfast: [
-      { id: "plant-egg-scramble", name: "Plant-based egg scramble", category: "Plant-based Options" },
-      { id: "plant-tacos", name: "Plant-based tacos", category: "Plant-based Options" },
-      { id: "plant-rice", name: "Plant-based rice", category: "Plant-based Options" },
-      { id: "plant-beans", name: "Plant-based beans and plantains", category: "Plant-based Options" },
-      { id: "scrambled-eggs", name: "Scrambled eggs", category: "Traditional" },
-      { id: "egg-whites", name: "Egg whites", category: "Traditional" },
-      { id: "bacon", name: "Bacon", category: "Traditional" },
-      { id: "sausage", name: "Sausage patties", category: "Traditional" },
-      { id: "tacos", name: "Grab-n-go tacos and sandwiches", category: "Traditional" },
-      { id: "biscuits", name: "Biscuits and gravy", category: "Traditional" },
-      { id: "yogurt", name: "Yogurt and Fruit Bar", category: "Healthy Options" },
-      { id: "oatmeal", name: "Warm oatmeal or grits", category: "Healthy Options" },
-      { id: "muffins", name: "Fresh muffins and pastries", category: "Bakery" }
-    ],
-    lunchDinner: [
-      { id: "deli", name: "Self-serve deli sandwich station", category: "Deli", price: 5.50 },
-      { id: "soup-salad", name: "Soup & Salad Station", category: "Healthy Options", price: 4.25 },
-      { id: "grill-chicken", name: "Halal chicken", category: "Grill", price: 6.00 },
-      { id: "fries", name: "French fries", category: "Grill", price: 2.50 },
-      { id: "plant-burger", name: "Plant-based burgers", category: "Grill", price: 5.75 },
-      { id: "baked-potato", name: "Baked potatoes", category: "Grill", price: 3.50 },
-      { id: "sweet-potato", name: "Sweet potatoes", category: "Grill", price: 3.75 },
-      { id: "pizza", name: "Selection of pizza", category: "Pizza & Pasta", price: 4.50 },
-      { id: "pasta", name: "Pasta and sauces", category: "Pizza & Pasta", price: 5.00 },
-      { id: "sweets", name: "Cookies, brownies, cakes and pies", category: "Desserts", price: 2.25 }
-    ]
-  },
-  "Seibel": {
-    breakfast: [
-      { id: "plant-egg-scramble", name: "Plant-based egg scramble", category: "Plant-based Options" },
-      { id: "plant-tacos", name: "Plant-based tacos", category: "Plant-based Options" },
-      { id: "plant-rice", name: "Plant-based rice", category: "Plant-based Options" },
-      { id: "plant-beans", name: "Plant-based beans and plantains", category: "Plant-based Options" },
-      { id: "scrambled-eggs", name: "Scrambled eggs", category: "Traditional" },
-      { id: "egg-whites", name: "Egg whites", category: "Traditional" },
-      { id: "bacon", name: "Bacon", category: "Traditional" },
-      { id: "sausage", name: "Sausage patties", category: "Traditional" },
-      { id: "tacos", name: "Grab-n-go tacos and sandwiches", category: "Traditional" },
-      { id: "biscuits", name: "Biscuits and gravy", category: "Traditional" },
-      { id: "yogurt", name: "Yogurt and Fruit Bar", category: "Healthy Options" },
-      { id: "oatmeal", name: "Warm oatmeal or grits", category: "Healthy Options" },
-      { id: "muffins", name: "Fresh muffins and pastries", category: "Bakery" }
-    ],
-    lunchDinner: [
-      { id: "deli", name: "Self-serve deli sandwich station", category: "Deli", price: 5.50 },
-      { id: "soup-salad", name: "Soup & Salad Station", category: "Healthy Options", price: 4.25 },
-      { id: "grill-chicken", name: "Halal chicken", category: "Grill", price: 6.00 },
-      { id: "fries", name: "French fries", category: "Grill", price: 2.50 },
-      { id: "plant-burger", name: "Plant-based burgers", category: "Grill", price: 5.75 },
-      { id: "baked-potato", name: "Baked potatoes", category: "Grill", price: 3.50 },
-      { id: "sweet-potato", name: "Sweet potatoes", category: "Grill", price: 3.75 },
-      { id: "pizza", name: "Selection of pizza", category: "Pizza & Pasta", price: 4.50 },
-      { id: "pasta", name: "Pasta and sauces", category: "Pizza & Pasta", price: 5.00 },
-      { id: "sweets", name: "Cookies, brownies, cakes and pies", category: "Desserts", price: 2.25 }
-    ]
-  },
-  "South": {
-    breakfast: [
-      { id: "plant-egg-scramble", name: "Plant-based egg scramble", category: "Plant-based Options" },
-      { id: "plant-tacos", name: "Plant-based tacos", category: "Plant-based Options" },
-      { id: "plant-rice", name: "Plant-based rice", category: "Plant-based Options" },
-      { id: "plant-beans", name: "Plant-based beans and plantains", category: "Plant-based Options" },
-      { id: "scrambled-eggs", name: "Scrambled eggs", category: "Traditional" },
-      { id: "egg-whites", name: "Egg whites", category: "Traditional" },
-      { id: "bacon", name: "Bacon", category: "Traditional" },
-      { id: "sausage", name: "Sausage patties", category: "Traditional" },
-      { id: "tacos", name: "Grab-n-go tacos and sandwiches", category: "Traditional" },
-      { id: "biscuits", name: "Biscuits and gravy", category: "Traditional" },
-      { id: "yogurt", name: "Yogurt and Fruit Bar", category: "Healthy Options" },
-      { id: "oatmeal", name: "Warm oatmeal or grits", category: "Healthy Options" },
-      { id: "muffins", name: "Fresh muffins and pastries", category: "Bakery" }
-    ],
-    lunchDinner: [
-      { id: "deli", name: "Self-serve deli sandwich station", category: "Deli", price: 5.50 },
-      { id: "soup-salad", name: "Soup & Salad Station", category: "Healthy Options", price: 4.25 },
-      { id: "grill-chicken", name: "Halal chicken", category: "Grill", price: 6.00 },
-      { id: "fries", name: "French fries", category: "Grill", price: 2.50 },
-      { id: "plant-burger", name: "Plant-based burgers", category: "Grill", price: 5.75 },
-      { id: "baked-potato", name: "Baked potatoes", category: "Grill", price: 3.50 },
-      { id: "sweet-potato", name: "Sweet potatoes", category: "Grill", price: 3.75 },
-      { id: "pizza", name: "Selection of pizza", category: "Pizza & Pasta", price: 4.50 },
-      { id: "pasta", name: "Pasta and sauces", category: "Pizza & Pasta", price: 5.00 },
-      { id: "sweets", name: "Cookies, brownies, cakes and pies", category: "Desserts", price: 2.25 }
-    ]
-  },
-  "West": {
-    breakfast: [
-      { id: "plant-egg-scramble", name: "Plant-based egg scramble", category: "Plant-based Options" },
-      { id: "plant-tacos", name: "Plant-based tacos", category: "Plant-based Options" },
-      { id: "plant-rice", name: "Plant-based rice", category: "Plant-based Options" },
-      { id: "plant-beans", name: "Plant-based beans and plantains", category: "Plant-based Options" },
-      { id: "scrambled-eggs", name: "Scrambled eggs", category: "Traditional" },
-      { id: "egg-whites", name: "Egg whites", category: "Traditional" },
-      { id: "bacon", name: "Bacon", category: "Traditional" },
-      { id: "sausage", name: "Sausage patties", category: "Traditional" },
-      { id: "tacos", name: "Grab-n-go tacos and sandwiches", category: "Traditional" },
-      { id: "biscuits", name: "Biscuits and gravy", category: "Traditional" },
-      { id: "yogurt", name: "Yogurt and Fruit Bar", category: "Healthy Options" },
-      { id: "oatmeal", name: "Warm oatmeal or grits", category: "Healthy Options" },
-      { id: "muffins", name: "Fresh muffins and pastries", category: "Bakery" }
-    ],
-    lunchDinner: [
-      { id: "deli", name: "Self-serve deli sandwich station", category: "Deli", price: 5.50 },
-      { id: "soup-salad", name: "Soup & Salad Station", category: "Healthy Options", price: 4.25 },
-      { id: "grill-chicken", name: "Halal chicken", category: "Grill", price: 6.00 },
-      { id: "fries", name: "French fries", category: "Grill", price: 2.50 },
-      { id: "plant-burger", name: "Plant-based burgers", category: "Grill", price: 5.75 },
-      { id: "baked-potato", name: "Baked potatoes", category: "Grill", price: 3.50 },
-      { id: "sweet-potato", name: "Sweet potatoes", category: "Grill", price: 3.75 },
-      { id: "pizza", name: "Selection of pizza", category: "Pizza & Pasta", price: 4.50 },
-      { id: "pasta", name: "Pasta and sauces", category: "Pizza & Pasta", price: 5.00 },
-      { id: "sweets", name: "Cookies, brownies, cakes and pies", category: "Desserts", price: 2.25 }
-    ]
-  }
-};
 
-// Function to determine meal time based on current time
+const menuData: Record<ServeryName, { breakfast: MenuItem[]; lunchDinner: MenuItem[] }> = {
+
+  "Baker": {
+  
+  breakfast: [
+  
+  { id: "plant-egg-scramble", name: "Plant-based egg scramble", category: "Plant-based Options", price: 3.50 },
+  
+  { id: "plant-tacos", name: "Plant-based tacos", category: "Plant-based Options", price: 4.00 },
+  
+  { id: "plant-rice", name: "Plant-based rice", category: "Plant-based Options", price: 2.50 },
+  
+  { id: "plant-beans", name: "Plant-based beans and plantains", category: "Plant-based Options", price: 3.00 },
+  
+  { id: "scrambled-eggs", name: "Scrambled eggs", category: "Traditional", price: 2.75 },
+  
+  { id: "egg-whites", name: "Egg whites", category: "Traditional", price: 2.50 },
+  
+  { id: "bacon", name: "Bacon", category: "Traditional", price: 3.25 },
+  
+  { id: "sausage", name: "Sausage patties", category: "Traditional", price: 3.00 },
+  
+  { id: "tacos", name: "Grab-n-go tacos and sandwiches", category: "Traditional", price: 4.50 },
+  
+  { id: "biscuits", name: "Biscuits and gravy", category: "Traditional", price: 3.75 },
+  
+  { id: "yogurt", name: "Yogurt and Fruit Bar", category: "Healthy Options", price: 2.25 },
+  
+  { id: "oatmeal", name: "Warm oatmeal or grits", category: "Healthy Options", price: 2.00 },
+  
+  { id: "muffins", name: "Fresh muffins and pastries", category: "Bakery", price: 1.75 }
+  
+  ],
+  
+  lunchDinner: [
+  
+  { id: "deli", name: "Self-serve deli sandwich station", category: "Deli", price: 5.50 },
+  
+  { id: "soup-salad", name: "Soup & Salad Station", category: "Healthy Options", price: 4.25 },
+  
+  { id: "grill-chicken", name: "Halal chicken", category: "Grill", price: 6.00 },
+  
+  { id: "fries", name: "French fries", category: "Grill", price: 2.50 },
+  
+  { id: "plant-burger", name: "Plant-based burgers", category: "Grill", price: 5.75 },
+  
+  { id: "baked-potato", name: "Baked potatoes", category: "Grill", price: 3.50 },
+  
+  { id: "sweet-potato", name: "Sweet potatoes", category: "Grill", price: 3.75 },
+  
+  { id: "pizza", name: "Selection of pizza", category: "Pizza & Pasta", price: 4.50 },
+  
+  { id: "pasta", name: "Pasta and sauces", category: "Pizza & Pasta", price: 5.00 },
+  
+  { id: "sweets", name: "Cookies, brownies, cakes and pies", category: "Desserts", price: 2.25 }
+  
+  ]
+  
+  },
+  
+  "North": {
+  
+  breakfast: [
+  
+  { id: "plant-egg-scramble", name: "Plant-based egg scramble", category: "Plant-based Options" },
+  
+  { id: "plant-tacos", name: "Plant-based tacos", category: "Plant-based Options" },
+  
+  { id: "plant-rice", name: "Plant-based rice", category: "Plant-based Options" },
+  
+  { id: "plant-beans", name: "Plant-based beans and plantains", category: "Plant-based Options" },
+  
+  { id: "scrambled-eggs", name: "Scrambled eggs", category: "Traditional" },
+  
+  { id: "egg-whites", name: "Egg whites", category: "Traditional" },
+  
+  { id: "bacon", name: "Bacon", category: "Traditional" },
+  
+  { id: "sausage", name: "Sausage patties", category: "Traditional" },
+  
+  { id: "tacos", name: "Grab-n-go tacos and sandwiches", category: "Traditional" },
+  
+  { id: "biscuits", name: "Biscuits and gravy", category: "Traditional" },
+  
+  { id: "yogurt", name: "Yogurt and Fruit Bar", category: "Healthy Options" },
+  
+  { id: "oatmeal", name: "Warm oatmeal or grits", category: "Healthy Options" },
+  
+  { id: "muffins", name: "Fresh muffins and pastries", category: "Bakery" }
+  
+  ],
+  
+  lunchDinner: [
+  
+  { id: "deli", name: "Self-serve deli sandwich station", category: "Deli", price: 5.50 },
+  
+  { id: "soup-salad", name: "Soup & Salad Station", category: "Healthy Options", price: 4.25 },
+  
+  { id: "grill-chicken", name: "Halal chicken", category: "Grill", price: 6.00 },
+  
+  { id: "fries", name: "French fries", category: "Grill", price: 2.50 },
+  
+  { id: "plant-burger", name: "Plant-based burgers", category: "Grill", price: 5.75 },
+  
+  { id: "baked-potato", name: "Baked potatoes", category: "Grill", price: 3.50 },
+  
+  { id: "sweet-potato", name: "Sweet potatoes", category: "Grill", price: 3.75 },
+  
+  { id: "pizza", name: "Selection of pizza", category: "Pizza & Pasta", price: 4.50 },
+  
+  { id: "pasta", name: "Pasta and sauces", category: "Pizza & Pasta", price: 5.00 },
+  
+  { id: "sweets", name: "Cookies, brownies, cakes and pies", category: "Desserts", price: 2.25 }
+  
+  ]
+  
+  },
+  
+  "Seibel": {
+  
+  breakfast: [
+  
+  { id: "plant-egg-scramble", name: "Plant-based egg scramble", category: "Plant-based Options" },
+  
+  { id: "plant-tacos", name: "Plant-based tacos", category: "Plant-based Options" },
+  
+  { id: "plant-rice", name: "Plant-based rice", category: "Plant-based Options" },
+  
+  { id: "plant-beans", name: "Plant-based beans and plantains", category: "Plant-based Options" },
+  
+  { id: "scrambled-eggs", name: "Scrambled eggs", category: "Traditional" },
+  
+  { id: "egg-whites", name: "Egg whites", category: "Traditional" },
+  
+  { id: "bacon", name: "Bacon", category: "Traditional" },
+  
+  { id: "sausage", name: "Sausage patties", category: "Traditional" },
+  
+  { id: "tacos", name: "Grab-n-go tacos and sandwiches", category: "Traditional" },
+  
+  { id: "biscuits", name: "Biscuits and gravy", category: "Traditional" },
+  
+  { id: "yogurt", name: "Yogurt and Fruit Bar", category: "Healthy Options" },
+  
+  { id: "oatmeal", name: "Warm oatmeal or grits", category: "Healthy Options" },
+  
+  { id: "muffins", name: "Fresh muffins and pastries", category: "Bakery" }
+  
+  ],
+  
+  lunchDinner: [
+  
+  { id: "deli", name: "Self-serve deli sandwich station", category: "Deli", price: 5.50 },
+  
+  { id: "soup-salad", name: "Soup & Salad Station", category: "Healthy Options", price: 4.25 },
+  
+  { id: "grill-chicken", name: "Halal chicken", category: "Grill", price: 6.00 },
+  
+  { id: "fries", name: "French fries", category: "Grill", price: 2.50 },
+  
+  { id: "plant-burger", name: "Plant-based burgers", category: "Grill", price: 5.75 },
+  
+  { id: "baked-potato", name: "Baked potatoes", category: "Grill", price: 3.50 },
+  
+  { id: "sweet-potato", name: "Sweet potatoes", category: "Grill", price: 3.75 },
+  
+  { id: "pizza", name: "Selection of pizza", category: "Pizza & Pasta", price: 4.50 },
+  
+  { id: "pasta", name: "Pasta and sauces", category: "Pizza & Pasta", price: 5.00 },
+  
+  { id: "sweets", name: "Cookies, brownies, cakes and pies", category: "Desserts", price: 2.25 }
+  
+  ]
+  
+  },
+  
+  "South": {
+  
+  breakfast: [
+  
+  { id: "plant-egg-scramble", name: "Plant-based egg scramble", category: "Plant-based Options" },
+  
+  { id: "plant-tacos", name: "Plant-based tacos", category: "Plant-based Options" },
+  
+  { id: "plant-rice", name: "Plant-based rice", category: "Plant-based Options" },
+  
+  { id: "plant-beans", name: "Plant-based beans and plantains", category: "Plant-based Options" },
+  
+  { id: "scrambled-eggs", name: "Scrambled eggs", category: "Traditional" },
+  
+  { id: "egg-whites", name: "Egg whites", category: "Traditional" },
+  
+  { id: "bacon", name: "Bacon", category: "Traditional" },
+  
+  { id: "sausage", name: "Sausage patties", category: "Traditional" },
+  
+  { id: "tacos", name: "Grab-n-go tacos and sandwiches", category: "Traditional" },
+  
+  { id: "biscuits", name: "Biscuits and gravy", category: "Traditional" },
+  
+  { id: "yogurt", name: "Yogurt and Fruit Bar", category: "Healthy Options" },
+  
+  { id: "oatmeal", name: "Warm oatmeal or grits", category: "Healthy Options" },
+  
+  { id: "muffins", name: "Fresh muffins and pastries", category: "Bakery" }
+  
+  ],
+  
+  lunchDinner: [
+  
+  { id: "deli", name: "Self-serve deli sandwich station", category: "Deli", price: 5.50 },
+  
+  { id: "soup-salad", name: "Soup & Salad Station", category: "Healthy Options", price: 4.25 },
+  
+  { id: "grill-chicken", name: "Halal chicken", category: "Grill", price: 6.00 },
+  
+  { id: "fries", name: "French fries", category: "Grill", price: 2.50 },
+  
+  { id: "plant-burger", name: "Plant-based burgers", category: "Grill", price: 5.75 },
+  
+  { id: "baked-potato", name: "Baked potatoes", category: "Grill", price: 3.50 },
+  
+  { id: "sweet-potato", name: "Sweet potatoes", category: "Grill", price: 3.75 },
+  
+  { id: "pizza", name: "Selection of pizza", category: "Pizza & Pasta", price: 4.50 },
+  
+  { id: "pasta", name: "Pasta and sauces", category: "Pizza & Pasta", price: 5.00 },
+  
+  { id: "sweets", name: "Cookies, brownies, cakes and pies", category: "Desserts", price: 2.25 }
+  
+  ]
+  
+  },
+  
+  "West": {
+  
+  breakfast: [
+  
+  { id: "plant-egg-scramble", name: "Plant-based egg scramble", category: "Plant-based Options" },
+  
+  { id: "plant-tacos", name: "Plant-based tacos", category: "Plant-based Options" },
+  
+  { id: "plant-rice", name: "Plant-based rice", category: "Plant-based Options" },
+  
+  { id: "plant-beans", name: "Plant-based beans and plantains", category: "Plant-based Options" },
+  
+  { id: "scrambled-eggs", name: "Scrambled eggs", category: "Traditional" },
+  
+  { id: "egg-whites", name: "Egg whites", category: "Traditional" },
+  
+  { id: "bacon", name: "Bacon", category: "Traditional" },
+  
+  { id: "sausage", name: "Sausage patties", category: "Traditional" },
+  
+  { id: "tacos", name: "Grab-n-go tacos and sandwiches", category: "Traditional" },
+  
+  { id: "biscuits", name: "Biscuits and gravy", category: "Traditional" },
+  
+  { id: "yogurt", name: "Yogurt and Fruit Bar", category: "Healthy Options" },
+  
+  { id: "oatmeal", name: "Warm oatmeal or grits", category: "Healthy Options" },
+  
+  { id: "muffins", name: "Fresh muffins and pastries", category: "Bakery" }
+  
+  ],
+  
+  lunchDinner: [
+  
+  { id: "deli", name: "Self-serve deli sandwich station", category: "Deli", price: 5.50 },
+  
+  { id: "soup-salad", name: "Soup & Salad Station", category: "Healthy Options", price: 4.25 },
+  
+  { id: "grill-chicken", name: "Halal chicken", category: "Grill", price: 6.00 },
+  
+  { id: "fries", name: "French fries", category: "Grill", price: 2.50 },
+  
+  { id: "plant-burger", name: "Plant-based burgers", category: "Grill", price: 5.75 },
+  
+  { id: "baked-potato", name: "Baked potatoes", category: "Grill", price: 3.50 },
+  
+  { id: "sweet-potato", name: "Sweet potatoes", category: "Grill", price: 3.75 },
+  
+  { id: "pizza", name: "Selection of pizza", category: "Pizza & Pasta", price: 4.50 },
+  
+  { id: "pasta", name: "Pasta and sauces", category: "Pizza & Pasta", price: 5.00 },
+  
+  { id: "sweets", name: "Cookies, brownies, cakes and pies", category: "Desserts", price: 2.25 }
+  
+  ]
+  
+  }
+  
+  };
+  
+
+  
+// --- HELPER FUNCTIONS ---
 function getMealTime(): "breakfast" | "lunchDinner" {
   const hour = new Date().getHours();
-  if (hour >= 6 && hour < 11) {
-    return "breakfast";
-  }
-  return "lunchDinner";
+  return (hour >= 6 && hour < 11) ? "breakfast" : "lunchDinner";
 }
 
-// Cart component
-function Cart({ cart, onUpdateQuantity, onRemoveItem, onClearCart }: {
+// --- REUSABLE COMPONENTS ---
+
+const MenuItemCard = ({ item, onAddToCart }: { item: MenuItem; onAddToCart: (item: MenuItem) => void }) => (
+  <div className="flex items-center justify-between p-3 transition-colors bg-gray-50/50 hover:bg-gray-100 rounded-lg">
+    <div className="flex-1 mr-4">
+      <p className="font-medium text-sm text-gray-800">{item.name}</p>
+      <p className="text-xs text-gray-500">{item.category}</p>
+    </div>
+    <div className="flex items-center space-x-4">
+      <Button
+        type="button"
+        size="icon"
+        variant="ghost"
+        onClick={() => onAddToCart(item)}
+        className="text-blue-600 hover:text-blue-700 h-8 w-8"
+      >
+        <PlusCircle className="w-5 h-5" />
+      </Button>
+    </div>
+  </div>
+);
+
+const MenuDisplay = ({ items, onAddToCart }: { items: MenuItem[]; onAddToCart: (item: MenuItem) => void }) => (
+  <div className="space-y-4">
+    <Label className="text-gray-700 font-semibold">Today's Menu</Label>
+    <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
+      {items.length > 0 ? (
+        items.map((item) => (
+          <MenuItemCard key={item.id} item={item} onAddToCart={onAddToCart} />
+        ))
+      ) : (
+        <p className="text-sm text-center text-gray-500 py-4">No items available for this mealtime.</p>
+      )}
+    </div>
+  </div>
+);
+
+const CartDisplay = ({ cart, onUpdateQuantity, onRemoveItem, onClearCart, onSubmit, isSubmitting, selectedServery, distanceMiles, deliveryPrice, isDistanceLoading }: {
   cart: CartItem[];
   onUpdateQuantity: (id: string, quantity: number) => void;
   onRemoveItem: (id: string) => void;
   onClearCart: () => void;
-}) {
-  const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
-  if (cart.length === 0) {
-    return (
-      <div className="bg-gray-50 p-4 rounded-lg text-center">
-        <ShoppingCart className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-        <p className="text-gray-500 text-sm">Your cart is empty</p>
-      </div>
-    );
-  }
+  onSubmit: (e: React.FormEvent) => Promise<void>;
+  isSubmitting: boolean;
+  selectedServery: ServeryName | "";
+  distanceMiles: number | null;
+  deliveryPrice: number | null;
+  isDistanceLoading: boolean;
+}) => {
+  const total = deliveryPrice ?? 0;
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-gray-800">Your Order</h3>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onClearCart}
-          className="text-red-600 hover:text-red-700"
-        >
-          <Trash2 className="w-4 h-4 mr-1" />
-          Clear
-        </Button>
-      </div>
-      
-      <div className="space-y-2 max-h-48 overflow-y-auto">
-        {cart.map((item) => (
-          <div key={item.id} className="bg-white p-3 rounded-lg border">
-            <div className="flex items-center justify-between mb-2">
+    <Card className="shadow-md flex flex-col h-full">
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ShoppingCart className="w-5 h-5" />
+            Your Order
+          </div>
+          {cart.length > 0 && (
+            <Button variant="ghost" size="sm" onClick={onClearCart} className="text-red-500 hover:text-red-600">
+              <Trash2 className="w-4 h-4 mr-1" />
+              Clear
+            </Button>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex-1 overflow-y-auto space-y-4">
+        {cart.length === 0 ? (
+          <div className="text-center py-10">
+            <ShoppingCart className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500">Your cart is empty.</p>
+            <p className="text-xs text-gray-400 mt-1">Add items from the menu to get started.</p>
+          </div>
+        ) : (
+          cart.map((item) => (
+            <div key={item.id} className="flex items-center space-x-4">
               <div className="flex-1">
                 <p className="font-medium text-sm">{item.name}</p>
-                <p className="text-xs text-gray-500">{item.category}</p>
+                <p className="text-xs text-gray-500">Qty x {item.quantity}</p>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onRemoveItem(item.id)}
-                className="text-red-600 hover:text-red-700 p-1"
-              >
-                <Trash2 className="w-3 h-3" />
-              </Button>
-            </div>
-            
-            <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onUpdateQuantity(item.id, Math.max(0, item.quantity - 1))}
-                  className="w-6 h-6 p-0"
-                >
-                  <Minus className="w-3 h-3" />
-                </Button>
-                <span className="text-sm font-medium w-8 text-center">{item.quantity}</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
-                  className="w-6 h-6 p-0"
-                >
-                  <Plus className="w-3 h-3" />
-                </Button>
+                <Button variant="outline" size="icon" onClick={() => onUpdateQuantity(item.id, item.quantity - 1)} className="h-7 w-7"><Minus className="w-3.5 h-3.5" /></Button>
+                <span className="text-sm font-medium w-6 text-center">{item.quantity}</span>
+                <Button variant="outline" size="icon" onClick={() => onUpdateQuantity(item.id, item.quantity + 1)} className="h-7 w-7"><Plus className="w-3.5 h-3.5" /></Button>
               </div>
-              <span className="text-sm font-semibold">${(item.price * item.quantity).toFixed(2)}</span>
+              <Button variant="ghost" size="icon" onClick={() => onRemoveItem(item.id)} className="h-7 w-7 text-gray-500 hover:text-red-600"><X className="w-3.5 h-3.5" /></Button>
             </div>
+          ))
+        )}
+      </CardContent>
+      {cart.length > 0 && (
+        <div className="p-6 border-t bg-gray-50/50">
+          <div className="text-sm text-gray-600 mb-2">
+            {isDistanceLoading ? (
+              <span>Calculating distance-based price...</span>
+            ) : distanceMiles != null ? (
+              <span>Distance from pickup: {distanceMiles.toFixed(2)} miles</span>
+            ) : (
+              <span>Enable location to calculate delivery price.</span>
+            )}
           </div>
-        ))}
-      </div>
-      
-      <div className="border-t pt-3">
-        <div className="flex justify-between items-center">
-          <span className="font-semibold">Total:</span>
-          <span className="font-bold text-lg">${total.toFixed(2)}</span>
+          <div className="flex justify-between items-center mb-4">
+            <span className="font-semibold text-gray-700">Total:</span>
+            <span className="font-bold text-xl">${total.toFixed(2)}</span>
+          </div>
+          <Button
+            onClick={onSubmit}
+            className="w-full font-semibold"
+            disabled={!selectedServery || cart.length === 0 || isSubmitting || deliveryPrice == null}
+          >
+            {isSubmitting ? "Placing Order..." : `Place Order`}
+          </Button>
         </div>
-      </div>
-    </div>
+      )}
+    </Card>
   );
-}
+};
 
+// --- MAIN PAGE COMPONENT ---
 export default function OrderPage() {
   const [selectedServery, setSelectedServery] = useState<ServeryName | "">("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [distanceMiles, setDistanceMiles] = useState<number | null>(null);
+  const [isDistanceLoading, setIsDistanceLoading] = useState(false);
 
   const mealTime = getMealTime();
   const availableMenuItems = selectedServery ? menuData[selectedServery][mealTime] : [];
 
   // Cart management functions
   const addToCart = (item: MenuItem) => {
-    const existingItem = cart.find(cartItem => cartItem.id === item.id);
-    if (existingItem) {
-      setCart(cart.map(cartItem =>
-        cartItem.id === item.id
-          ? { ...cartItem, quantity: cartItem.quantity + 1 }
-          : cartItem
-      ));
-    } else {
-      setCart([...cart, {
-        id: item.id,
-        name: item.name,
-        category: item.category,
-        quantity: 1,
-        price: item.price || 0
-      }]);
-    }
+    setCart(prevCart => {
+      const existingItem = prevCart.find(cartItem => cartItem.id === item.id);
+      if (existingItem) {
+        return prevCart.map(cartItem =>
+          cartItem.id === item.id ? { ...cartItem, quantity: cartItem.quantity + 1 } : cartItem
+        );
+      }
+      return [...prevCart, { ...item, quantity: 1, price: item.price || 0 }];
+    });
   };
 
   const updateQuantity = (id: string, quantity: number) => {
     if (quantity <= 0) {
-      setCart(cart.filter(item => item.id !== id));
+      removeFromCart(id);
     } else {
-      setCart(cart.map(item =>
-        item.id === id ? { ...item, quantity } : item
-      ));
+      setCart(cart.map(item => item.id === id ? { ...item, quantity } : item));
     }
   };
 
@@ -320,26 +510,99 @@ export default function OrderPage() {
 
   const clearCart = () => {
     setCart([]);
+    toast.info("Your cart has been cleared.");
   };
+
+  // Geolocate user for distance-based pricing
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      },
+      () => {
+        setUserLocation(null);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+    );
+  }, []);
+
+  function haversineMiles(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+    const toRad = (x: number) => (x * Math.PI) / 180;
+    const R = 3958.8; // miles
+    const dLat = toRad(b.lat - a.lat);
+    const dLng = toRad(b.lng - a.lng);
+    const lat1 = toRad(a.lat);
+    const lat2 = toRad(b.lat);
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+
+  function calculateDeliveryPrice(miles: number | null): number | null {
+    if (miles == null || Number.isNaN(miles)) return null;
+    if (miles <= 0.3) return 3.0;
+    const over = miles - 0.2;
+    const increments = Math.ceil(over / 0.1);
+    const price = 2.0 + increments * 0.7;
+    return Math.round(price * 100) / 100;
+  }
+
+  useEffect(() => {
+    if (!selectedServery || !userLocation) {
+      setDistanceMiles(null);
+      return;
+    }
+    const servery = RICE_SERVERIES.find(s => s.name.includes(selectedServery));
+    if (!servery) {
+      setDistanceMiles(null);
+      return;
+    }
+    setIsDistanceLoading(true);
+    (async () => {
+      try {
+        // Prefer route distance from API
+        const origin = selectedServery === "Baker" ? "Baker College - Housing and Dining Lot" : `${selectedServery} Servery`;
+        const res = await fetch("/api/distance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ origin, destination: userLocation, mode: "walking" })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const milesFromApi: number | undefined = data?.distance?.miles;
+          if (typeof milesFromApi === "number" && !Number.isNaN(milesFromApi)) {
+            setDistanceMiles(milesFromApi);
+          } else {
+            const milesFallback = haversineMiles(servery.position, userLocation);
+            setDistanceMiles(milesFallback);
+          }
+        } else {
+          const milesFallback = haversineMiles(servery.position, userLocation);
+          setDistanceMiles(milesFallback);
+        }
+      } catch {
+        const milesFallback = haversineMiles(servery.position, userLocation);
+        setDistanceMiles(milesFallback);
+      } finally {
+        setIsDistanceLoading(false);
+      }
+    })();
+  }, [selectedServery, userLocation]);
+
+  const deliveryPrice = useMemo(() => calculateDeliveryPrice(distanceMiles), [distanceMiles]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!selectedServery || cart.length === 0) {
-      alert("Please select a pickup location and add items to your cart");
+    if (!selectedServery || cart.length === 0 || deliveryPrice == null) {
+      toast.error("Please select a location, add items, and enable location for pricing.");
       return;
     }
-
     setIsSubmitting(true);
-    
     try {
-      const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-      
+      const total = deliveryPrice;
       const response = await fetch("/api/orders", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           servery: selectedServery,
           orderItems: cart,
@@ -352,56 +615,43 @@ export default function OrderPage() {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to submit order");
       }
-
-      const result = await response.json();
-      console.log("Order submitted successfully:", result);
       
-      setSubmitSuccess(true);
-      // Reset form after successful submission
-      setTimeout(() => {
-        setSelectedServery("");
-        setCart([]);
-        setSubmitSuccess(false);
-      }, 3000);
-      
+      toast.success("Order submitted successfully!");
+      setSelectedServery("");
+      setCart([]);
     } catch (error) {
-      console.error("Error submitting order:", error);
-      alert(`Failed to submit order: ${error instanceof Error ? error.message : "Unknown error"}`);
+      toast.error(`Failed to submit order: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-orange-50">
-      <SessionProvider>
-        <Navbar />
-      </SessionProvider>
-      
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-[calc(100vh-200px)]">
-          
-          {/* Left Column - Menu Selection (3/12 width) */}
-          <div className="lg:col-span-3">
-            <Card className="h-full shadow-lg">
-              <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
-                <CardTitle className="flex items-center gap-2">
-                  <Clock className="w-5 h-5" />
-                  Get a Meal
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  
-                  {/* Pickup Location */}
+    <>
+      <Toaster richColors position="top-right" />
+      <div className="min-h-screen bg-gray-50">
+        <SessionProvider>
+          <Navbar />
+        </SessionProvider>
+        
+        <main className="container mx-auto px-4 py-8">
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+            
+            {/* Left Column: Order Flow */}
+            <div className="lg:col-span-2 space-y-8">
+              {/* Step 1: Selection */}
+              <Card className="shadow-md">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <UtensilsCrossed className="w-5 h-5" />
+                    Create Your Order
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
                   <div className="space-y-2">
-                    <Label htmlFor="servery" className="text-gray-700 font-medium">Pickup Location</Label>
-                    <Select value={selectedServery} onValueChange={(value: ServeryName) => {
-                      setSelectedServery(value);
-                    }}>
-                      <SelectTrigger className="border-gray-300 focus:border-blue-500">
-                        <SelectValue placeholder="Select a servery" />
-                      </SelectTrigger>
+                    <Label htmlFor="servery" className="font-semibold text-gray-700">1. Select Pickup Location</Label>
+                    <Select value={selectedServery} onValueChange={(value: ServeryName) => setSelectedServery(value)}>
+                      <SelectTrigger id="servery"><SelectValue placeholder="Choose a servery..." /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Baker">🍽️ Baker Servery</SelectItem>
                         <SelectItem value="North">🍽️ North Servery</SelectItem>
@@ -411,103 +661,77 @@ export default function OrderPage() {
                       </SelectContent>
                     </Select>
                   </div>
-
-                  {/* Menu Items */}
-                  {selectedServery && (
-                    <div className="space-y-3">
-                      <Label className="text-gray-700 font-medium">Available Items</Label>
-                      <div className="max-h-64 overflow-y-auto space-y-2">
-                        {availableMenuItems.map((item) => (
-                          <div key={item.id} className="bg-white border border-gray-200 rounded-lg p-3 hover:border-blue-300 transition-colors">
-                            <div className="flex items-center justify-between">
-                              <div className="flex-1">
-                                <p className="font-medium text-sm text-gray-800">{item.name}</p>
-                                <p className="text-xs text-gray-500">{item.category}</p>
-                                <p className="text-xs text-green-600 font-medium">${(item.price || 0).toFixed(2)}</p>
-                              </div>
-                              <Button
-                                type="button"
-                                size="sm"
-                                onClick={() => addToCart(item)}
-                                className="bg-blue-600 hover:bg-blue-700 text-white"
-                              >
-                                <Plus className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Meal Time Indicator */}
-                  <div className="bg-gradient-to-r from-blue-50 to-orange-50 p-4 rounded-lg border">
-                    <p className="text-sm text-gray-800">
-                      <strong>Current meal:</strong> {mealTime === "breakfast" ? "🌅 Breakfast" : "🍽️ Lunch/Dinner"}
-                    </p>
-                    <p className="text-xs text-gray-600 mt-1">
-                      Menu items update based on time of day
-                    </p>
+                  <div className="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-md text-sm">
+                    <p><strong>Current Meal:</strong> {mealTime === "breakfast" ? "🌅 Breakfast" : "🍽️ Lunch/Dinner"}</p>
+                    <p className="text-xs mt-1">Menus update automatically based on the time of day.</p>
                   </div>
 
-                  {/* Submit Button */}
-                  <Button 
-                    type="submit" 
-                    className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3" 
-                    disabled={!selectedServery || cart.length === 0 || isSubmitting}
-                  >
-                    {isSubmitting ? "Submitting..." : `Place Order (${cart.length} items)`}
-                  </Button>
-
-                  {/* Success Message */}
-                  {submitSuccess && (
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                      <p className="text-sm text-green-800 font-medium">
-                        ✅ Order submitted successfully!
-                      </p>
+                  {selectedServery && <Separator />}
+                  
+                  {selectedServery && (
+                    <div className="space-y-2">
+                      <Label className="font-semibold text-gray-700">2. Add Items to Cart</Label>
+                      <MenuDisplay items={availableMenuItems} onAddToCart={addToCart} />
                     </div>
                   )}
-                </form>
-              </CardContent>
-            </Card>
-          </div>
+                  {!selectedServery && (
+                      <div className="text-center py-6 text-gray-500">
+                          <p>Please select a servery to view the menu.</p>
+                      </div>
+                  )}
+                </CardContent>
+              </Card>
 
-          {/* Middle Column - Cart (3/12 width) */}
-          <div className="lg:col-span-3">
-            <Card className="h-full shadow-lg">
-              <CardHeader className="bg-gradient-to-r from-orange-500 to-orange-600 text-white">
-                <CardTitle className="flex items-center gap-2">
-                  <ShoppingCart className="w-5 h-5" />
-                  Your Cart
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                <Cart 
-                  cart={cart}
-                  onUpdateQuantity={updateQuantity}
-                  onRemoveItem={removeFromCart}
-                  onClearCart={clearCart}
-                />
-              </CardContent>
-            </Card>
-          </div>
+              {/* Step 2: Cart */}
+              <CartDisplay
+                cart={cart}
+                onUpdateQuantity={updateQuantity}
+                onRemoveItem={removeFromCart}
+                onClearCart={clearCart}
+                onSubmit={handleSubmit}
+                isSubmitting={isSubmitting}
+                selectedServery={selectedServery}
+                distanceMiles={distanceMiles}
+                deliveryPrice={deliveryPrice}
+                isDistanceLoading={isDistanceLoading}
+              />
+            </div>
 
-          {/* Right Column - Map (6/12 width) */}
-          <div className="lg:col-span-6">
-            <Card className="h-full shadow-lg">
-              <CardHeader className="bg-gradient-to-r from-green-600 to-green-700 text-white">
-                <CardTitle className="flex items-center gap-2">
-                  <MapPin className="w-5 h-5" />
-                  Your Location & Nearby Serveries
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 h-[calc(100%-80px)]">
-                <GoogleMap className="w-full h-full" />
-              </CardContent>
-            </Card>
+            {/* Right Column: Map */}
+            <div className="lg:col-span-3">
+              <Card className="h-[500px] lg:h-full shadow-md">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MapPin className="w-5 h-5" />
+                    Servery Locations
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0 h-[calc(100%-72px)]">
+                  <MapSelector 
+                    className="w-full h-full rounded-b-lg"
+                    showDirections={!!selectedServery}
+                    origin={selectedServery 
+                      ? (selectedServery === "Baker" 
+                          ? "Baker College - Housing and Dining Lot" 
+                          : `${selectedServery} Servery`)
+                      : undefined}
+                    destination={undefined}
+                    travelMode="walking"
+                    markers={selectedServery ? [
+                      {
+                        position: RICE_SERVERIES.find(s => s.name.includes(selectedServery))?.position || { lat: 29.7174, lng: -95.4018 },
+                        title: `${selectedServery} Servery`,
+                        label: "📍"
+                      }
+                    ] : []}
+                  />
+                </CardContent>
+              </Card>
+            </div>
+
           </div>
-        </div>
+        </main>
       </div>
-    </div>
+    </>
   );
 }
