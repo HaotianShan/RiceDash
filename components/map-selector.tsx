@@ -34,10 +34,6 @@ export default function MapSelector({
       {/* Map Container */}
       <Card className="h-[500px] lg:h-[600px]">
         <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <MapPin className="w-5 h-5" />
-            Google Maps View
-          </CardTitle>
         </CardHeader>
         <CardContent className="p-0 h-[calc(100%-72px)]">
           <GoogleMap

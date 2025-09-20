@@ -1,7 +1,7 @@
 import "server-only";
 
 import { genSaltSync, hashSync } from "bcrypt-ts";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, gte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
@@ -147,6 +147,52 @@ export async function getPendingOrders(): Promise<Order[]> {
     } catch (error) {
         console.error("Failed to get pending orders:", error);
         throw new Error("Could not retrieve pending orders.");
+    }
+}
+
+/**
+ * Retrieves all orders from the last 30 minutes with customer information.
+ * @returns An array of recent order objects with customer details.
+ */
+export async function getRecentOrdersWithCustomers(): Promise<(Order & { customer: User })[]> {
+    try {
+        const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+        
+        const results = await db.select({
+            // Order fields
+            id: orders.id,
+            customerId: orders.customerId,
+            deliveryPersonId: orders.deliveryPersonId,
+            serveryName: orders.serveryName,
+            orderItemsJSON: orders.orderItemsJSON,
+            status: orders.status,
+            paymentStatus: orders.paymentStatus,
+            totalAmount: orders.totalAmount,
+            deliveryLocation: orders.deliveryLocation,
+            orderTimestamp: orders.orderTimestamp,
+            deliveryRating: orders.deliveryRating,
+            // Customer fields
+            customer: {
+                id: users.id,
+                firstName: users.firstName,
+                lastName: users.lastName,
+                riceEmail: users.riceEmail,
+                phoneNumber: users.phoneNumber,
+                passwordHash: users.passwordHash,
+                isDeliveryDriver: users.isDeliveryDriver,
+                driverStatus: users.driverStatus,
+                createdAt: users.createdAt,
+            }
+        })
+        .from(orders)
+        .innerJoin(users, eq(orders.customerId, users.id))
+        .where(gte(orders.orderTimestamp, thirtyMinutesAgo))
+        .orderBy(orders.orderTimestamp);
+        
+        return results;
+    } catch (error) {
+        console.error("Failed to get recent orders:", error);
+        throw new Error("Could not retrieve recent orders.");
     }
 }
 

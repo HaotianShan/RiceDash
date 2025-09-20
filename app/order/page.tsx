@@ -354,40 +354,103 @@ function getMealTime(): "breakfast" | "lunchDinner" {
 
 // --- REUSABLE COMPONENTS ---
 
-const MenuItemCard = ({ item, onAddToCart }: { item: MenuItem; onAddToCart: (item: MenuItem) => void }) => (
-  <div className="flex items-center justify-between p-3 transition-colors bg-gray-50/50 hover:bg-gray-100 rounded-lg">
-    <div className="flex-1 mr-4">
-      <p className="font-medium text-sm text-gray-800">{item.name}</p>
-      <p className="text-xs text-gray-500">{item.category}</p>
-    </div>
-    <div className="flex items-center space-x-4">
+const MenuItemCard = ({ item, onAddToCart }: { item: MenuItem; onAddToCart: (item: MenuItem) => void }) => {
+  const [isAdding, setIsAdding] = useState(false);
+
+  const handleAddToCart = async () => {
+    if (isAdding) return; // Prevent double clicks
+    
+    setIsAdding(true);
+    onAddToCart(item);
+    
+    // Show success feedback
+    setTimeout(() => {
+      setIsAdding(false);
+    }, 600);
+  };
+
+  return (
+    <div className="group flex items-center justify-between p-3 transition-all duration-200 bg-white border border-gray-200 hover:border-blue-300 hover:shadow-sm rounded-lg">
+      <div className="flex-1 mr-3">
+        <h3 className="font-medium text-gray-900 text-sm mb-1">{item.name}</h3>
+        <span className="text-xs text-gray-500">{item.category}</span>
+      </div>
       <Button
         type="button"
-        size="icon"
-        variant="ghost"
-        onClick={() => onAddToCart(item)}
-        className="text-blue-600 hover:text-blue-700 h-8 w-8"
+        size="sm"
+        variant="outline"
+        onClick={handleAddToCart}
+        disabled={isAdding}
+        className={`h-8 px-3 text-xs transition-all duration-300 ${
+          isAdding 
+            ? 'text-green-600 border-green-300 bg-green-50' 
+            : 'text-blue-600 border-blue-300 hover:bg-blue-50 hover:border-blue-400'
+        }`}
       >
-        <PlusCircle className="w-5 h-5" />
+        {isAdding ? (
+          <>
+            <div className="w-3 h-3 border-2 border-green-600 border-t-transparent rounded-full animate-spin mr-1" />
+            Adding
+          </>
+        ) : (
+          <>
+            <PlusCircle className="w-3 h-3 mr-1" />
+            Add
+          </>
+        )}
       </Button>
     </div>
-  </div>
-);
+  );
+};
 
-const MenuDisplay = ({ items, onAddToCart }: { items: MenuItem[]; onAddToCart: (item: MenuItem) => void }) => (
-  <div className="space-y-4">
-    <Label className="text-gray-700 font-semibold">Today's Menu</Label>
-    <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
+const MenuDisplay = ({ items, onAddToCart }: { items: MenuItem[]; onAddToCart: (item: MenuItem) => void }) => {
+  // Group items by category
+  const groupedItems = items.reduce((acc, item) => {
+    if (!acc[item.category]) {
+      acc[item.category] = [];
+    }
+    acc[item.category].push(item);
+    return acc;
+  }, {} as Record<string, MenuItem[]>);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-bold text-gray-900">Today's Menu</h2>
+        <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+          {items.length} items
+        </span>
+      </div>
+      
       {items.length > 0 ? (
-        items.map((item) => (
-          <MenuItemCard key={item.id} item={item} onAddToCart={onAddToCart} />
-        ))
+        <div className="space-y-6 max-h-96 overflow-y-auto pr-2">
+          {Object.entries(groupedItems).map(([category, categoryItems]) => (
+            <div key={category} className="space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="h-px bg-gray-300 flex-1"></div>
+                <h3 className="text-sm font-semibold text-gray-700 px-3 py-1 bg-gray-50 rounded-full border">
+                  {category}
+                </h3>
+                <div className="h-px bg-gray-300 flex-1"></div>
+              </div>
+              <div className="space-y-2">
+                {categoryItems.map((item) => (
+                  <MenuItemCard key={item.id} item={item} onAddToCart={onAddToCart} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       ) : (
-        <p className="text-sm text-center text-gray-500 py-4">No items available for this mealtime.</p>
+        <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
+          <UtensilsCrossed className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+          <p className="text-gray-500 font-medium">No items available</p>
+          <p className="text-sm text-gray-400 mt-1">for this mealtime</p>
+        </div>
       )}
     </div>
-  </div>
-);
+  );
+};
 
 const CartDisplay = ({ cart, onUpdateQuantity, onRemoveItem, onClearCart, onSubmit, isSubmitting, selectedServery, distanceMiles, deliveryPrice, isDistanceLoading }: {
   cart: CartItem[];
@@ -404,12 +467,17 @@ const CartDisplay = ({ cart, onUpdateQuantity, onRemoveItem, onClearCart, onSubm
   const total = deliveryPrice ?? 0;
 
   return (
-    <Card className="shadow-md flex flex-col h-full">
+    <Card className="shadow-md">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <ShoppingCart className="w-5 h-5" />
             Your Order
+            {cart.length > 0 && (
+              <span className="text-sm font-normal text-gray-500">
+                ({cart.reduce((sum, item) => sum + item.quantity, 0)}/10 items)
+              </span>
+            )}
           </div>
           {cart.length > 0 && (
             <Button variant="ghost" size="sm" onClick={onClearCart} className="text-red-500 hover:text-red-600">
@@ -419,54 +487,86 @@ const CartDisplay = ({ cart, onUpdateQuantity, onRemoveItem, onClearCart, onSubm
           )}
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex-1 overflow-y-auto space-y-4">
+      <CardContent>
         {cart.length === 0 ? (
-          <div className="text-center py-10">
+          <div className="text-center py-8">
             <ShoppingCart className="w-12 h-12 text-gray-300 mx-auto mb-3" />
             <p className="text-gray-500">Your cart is empty.</p>
             <p className="text-xs text-gray-400 mt-1">Add items from the menu to get started.</p>
           </div>
         ) : (
-          cart.map((item) => (
-            <div key={item.id} className="flex items-center space-x-4">
-              <div className="flex-1">
-                <p className="font-medium text-sm">{item.name}</p>
-                <p className="text-xs text-gray-500">Qty x {item.quantity}</p>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Button variant="outline" size="icon" onClick={() => onUpdateQuantity(item.id, item.quantity - 1)} className="h-7 w-7"><Minus className="w-3.5 h-3.5" /></Button>
-                <span className="text-sm font-medium w-6 text-center">{item.quantity}</span>
-                <Button variant="outline" size="icon" onClick={() => onUpdateQuantity(item.id, item.quantity + 1)} className="h-7 w-7"><Plus className="w-3.5 h-3.5" /></Button>
-              </div>
-              <Button variant="ghost" size="icon" onClick={() => onRemoveItem(item.id)} className="h-7 w-7 text-gray-500 hover:text-red-600"><X className="w-3.5 h-3.5" /></Button>
+          <div className="space-y-6">
+            {/* Cart Items Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+              {cart.map((item) => (
+                <div key={item.id} className="group flex items-center justify-between p-3 bg-white border border-gray-200 hover:border-blue-300 hover:shadow-sm rounded-lg transition-all duration-200">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm text-gray-900 truncate">{item.name}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Qty: {item.quantity}</p>
+                  </div>
+                  <div className="flex items-center space-x-2 ml-2">
+                    <div className="flex items-center bg-gray-100 rounded-md p-0.5">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => onUpdateQuantity(item.id, item.quantity - 1)} 
+                        className="h-6 w-6 hover:bg-red-100 hover:text-red-600 transition-colors"
+                      >
+                        <Minus className="w-3 h-3" />
+                      </Button>
+                      <span className="text-sm font-medium text-gray-900 w-5 text-center">{item.quantity}</span>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => onUpdateQuantity(item.id, item.quantity + 1)} 
+                        className="h-6 w-6 hover:bg-green-100 hover:text-green-600 transition-colors"
+                      >
+                        <Plus className="w-3 h-3" />
+                      </Button>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => onRemoveItem(item.id)} 
+                      className="h-6 w-6 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))
+
+            {/* Order Summary and Submit */}
+            <div className="border-t pt-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="text-sm text-gray-600">
+                  {isDistanceLoading ? (
+                    <span>Calculating distance-based price...</span>
+                  ) : distanceMiles != null ? (
+                    <span>Distance from pickup: {distanceMiles.toFixed(2)} miles</span>
+                  ) : (
+                    <span>Enable location to calculate delivery price.</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <span className="font-semibold text-gray-700">Total: </span>
+                    <span className="font-bold text-xl">${total.toFixed(2)}</span>
+                  </div>
+                  <Button
+                    onClick={onSubmit}
+                    className="font-semibold px-8"
+                    disabled={!selectedServery || cart.length === 0 || isSubmitting || deliveryPrice == null}
+                  >
+                    {isSubmitting ? "Placing Order..." : `Place Order`}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </CardContent>
-      {cart.length > 0 && (
-        <div className="p-6 border-t bg-gray-50/50">
-          <div className="text-sm text-gray-600 mb-2">
-            {isDistanceLoading ? (
-              <span>Calculating distance-based price...</span>
-            ) : distanceMiles != null ? (
-              <span>Distance from pickup: {distanceMiles.toFixed(2)} miles</span>
-            ) : (
-              <span>Enable location to calculate delivery price.</span>
-            )}
-          </div>
-          <div className="flex justify-between items-center mb-4">
-            <span className="font-semibold text-gray-700">Total:</span>
-            <span className="font-bold text-xl">${total.toFixed(2)}</span>
-          </div>
-          <Button
-            onClick={onSubmit}
-            className="w-full font-semibold"
-            disabled={!selectedServery || cart.length === 0 || isSubmitting || deliveryPrice == null}
-          >
-            {isSubmitting ? "Placing Order..." : `Place Order`}
-          </Button>
-        </div>
-      )}
     </Card>
   );
 };
@@ -487,6 +587,13 @@ export default function OrderPage() {
   const addToCart = (item: MenuItem) => {
     setCart(prevCart => {
       const existingItem = prevCart.find(cartItem => cartItem.id === item.id);
+      const totalItems = prevCart.reduce((sum, cartItem) => sum + cartItem.quantity, 0);
+      
+      // Check if adding this item would exceed the 10-item limit
+      if (totalItems >= 10) {
+        return prevCart;
+      }
+      
       if (existingItem) {
         return prevCart.map(cartItem =>
           cartItem.id === item.id ? { ...cartItem, quantity: cartItem.quantity + 1 } : cartItem
@@ -500,6 +607,17 @@ export default function OrderPage() {
     if (quantity <= 0) {
       removeFromCart(id);
     } else {
+      const currentItem = cart.find(item => item.id === id);
+      if (currentItem) {
+        const totalItems = cart.reduce((sum, cartItem) => sum + cartItem.quantity, 0);
+        const quantityDifference = quantity - currentItem.quantity;
+        
+        // Check if increasing quantity would exceed the 10-item limit
+        if (totalItems + quantityDifference > 10) {
+
+          return;
+        }
+      }
       setCart(cart.map(item => item.id === id ? { ...item, quantity } : item));
     }
   };
@@ -628,106 +746,108 @@ export default function OrderPage() {
 
   return (
     <>
-      <Toaster richColors position="top-right" />
+      <Toaster position="top-right" />
       <div className="min-h-screen bg-gray-50">
         <SessionProvider>
           <Navbar />
         </SessionProvider>
         
         <main className="container mx-auto px-4 py-8">
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+          <div className="space-y-8">
             
-            {/* Left Column: Order Flow */}
-            <div className="lg:col-span-2 space-y-8">
-              {/* Step 1: Selection */}
-              <Card className="shadow-md">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <UtensilsCrossed className="w-5 h-5" />
-                    Create Your Order
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="servery" className="font-semibold text-gray-700">1. Select Pickup Location</Label>
-                    <Select value={selectedServery} onValueChange={(value: ServeryName) => setSelectedServery(value)}>
-                      <SelectTrigger id="servery"><SelectValue placeholder="Choose a servery..." /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Baker">🍽️ Baker Servery</SelectItem>
-                        <SelectItem value="North">🍽️ North Servery</SelectItem>
-                        <SelectItem value="Seibel">🍽️ Seibel Servery</SelectItem>
-                        <SelectItem value="South">🍽️ South Servery</SelectItem>
-                        <SelectItem value="West">🍽️ West Servery</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-md text-sm">
-                    <p><strong>Current Meal:</strong> {mealTime === "breakfast" ? "🌅 Breakfast" : "🍽️ Lunch/Dinner"}</p>
-                    <p className="text-xs mt-1">Menus update automatically based on the time of day.</p>
-                  </div>
-
-                  {selectedServery && <Separator />}
-                  
-                  {selectedServery && (
+            {/* Order Creation Section */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+              {/* Left Column: Menu Selection */}
+              <div className="lg:col-span-2">
+                <Card className="shadow-md h-[500px] lg:h-[675px] flex flex-col">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <UtensilsCrossed className="w-5 h-5" />
+                      Create Your Order
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex-1 overflow-y-auto space-y-6">
                     <div className="space-y-2">
-                      <Label className="font-semibold text-gray-700">2. Add Items to Cart</Label>
-                      <MenuDisplay items={availableMenuItems} onAddToCart={addToCart} />
+                      <Label htmlFor="servery" className="font-semibold text-gray-700">1. Select Pickup Location</Label>
+                      <Select value={selectedServery} onValueChange={(value: ServeryName) => setSelectedServery(value)}>
+                        <SelectTrigger id="servery"><SelectValue placeholder="Choose a servery..." /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Baker">🍽️ Baker Servery</SelectItem>
+                          <SelectItem value="North">🍽️ North Servery</SelectItem>
+                          <SelectItem value="Seibel">🍽️ Seibel Servery</SelectItem>
+                          <SelectItem value="South">🍽️ South Servery</SelectItem>
+                          <SelectItem value="West">🍽️ West Servery</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                  )}
-                  {!selectedServery && (
-                      <div className="text-center py-6 text-gray-500">
-                          <p>Please select a servery to view the menu.</p>
+                    <div className="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-md text-sm">
+                      <p><strong>Current Meal:</strong> {mealTime === "breakfast" ? "🌅 Breakfast" : "🍽️ Lunch/Dinner"}</p>
+                      <p className="text-xs mt-1">Menus update automatically based on the time of day.</p>
+                    </div>
+
+                    {selectedServery && <Separator />}
+                    
+                    {selectedServery && (
+                      <div className="space-y-2">
+                        <Label className="font-semibold text-gray-700">2. Add Items to Cart</Label>
+                        <MenuDisplay items={availableMenuItems} onAddToCart={addToCart} />
                       </div>
-                  )}
-                </CardContent>
-              </Card>
+                    )}
+                    {!selectedServery && (
+                        <div className="text-center py-6 text-gray-500">
+                            <p>Please select a servery to view the menu.</p>
+                        </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
 
-              {/* Step 2: Cart */}
-              <CartDisplay
-                cart={cart}
-                onUpdateQuantity={updateQuantity}
-                onRemoveItem={removeFromCart}
-                onClearCart={clearCart}
-                onSubmit={handleSubmit}
-                isSubmitting={isSubmitting}
-                selectedServery={selectedServery}
-                distanceMiles={distanceMiles}
-                deliveryPrice={deliveryPrice}
-                isDistanceLoading={isDistanceLoading}
-              />
+              {/* Right Column: Map */}
+              <div className="lg:col-span-3">
+                <Card className="shadow-md h-[500px] lg:h-[600px] flex flex-col">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <MapPin className="w-5 h-5" />
+                      Servery Locations
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0 flex-1">
+                    <MapSelector 
+                      className="w-full h-full"
+                      showDirections={!!selectedServery}
+                      origin={selectedServery 
+                        ? (selectedServery === "Baker" 
+                            ? "Baker College - Housing and Dining Lot" 
+                            : `${selectedServery} Servery`)
+                        : undefined}
+                      destination={undefined}
+                      travelMode="walking"
+                      markers={selectedServery ? [
+                        {
+                          position: RICE_SERVERIES.find(s => s.name.includes(selectedServery))?.position || { lat: 29.7174, lng: -95.4018 },
+                          title: `${selectedServery} Servery`,
+                          label: "📍"
+                        }
+                      ] : []}
+                    />
+                  </CardContent>
+                </Card>
+              </div>
             </div>
 
-            {/* Right Column: Map */}
-            <div className="lg:col-span-3">
-              <Card className="h-[500px] lg:h-full shadow-md">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MapPin className="w-5 h-5" />
-                    Servery Locations
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0 h-[calc(100%-72px)]">
-                  <MapSelector 
-                    className="w-full h-full rounded-b-lg"
-                    showDirections={!!selectedServery}
-                    origin={selectedServery 
-                      ? (selectedServery === "Baker" 
-                          ? "Baker College - Housing and Dining Lot" 
-                          : `${selectedServery} Servery`)
-                      : undefined}
-                    destination={undefined}
-                    travelMode="walking"
-                    markers={selectedServery ? [
-                      {
-                        position: RICE_SERVERIES.find(s => s.name.includes(selectedServery))?.position || { lat: 29.7174, lng: -95.4018 },
-                        title: `${selectedServery} Servery`,
-                        label: "📍"
-                      }
-                    ] : []}
-                  />
-                </CardContent>
-              </Card>
-            </div>
+            {/* Full Width Cart Section */}
+            <CartDisplay
+              cart={cart}
+              onUpdateQuantity={updateQuantity}
+              onRemoveItem={removeFromCart}
+              onClearCart={clearCart}
+              onSubmit={handleSubmit}
+              isSubmitting={isSubmitting}
+              selectedServery={selectedServery}
+              distanceMiles={distanceMiles}
+              deliveryPrice={deliveryPrice}
+              isDistanceLoading={isDistanceLoading}
+            />
 
           </div>
         </main>
