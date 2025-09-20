@@ -101,12 +101,12 @@ const HeroSection = () => {
               - Added transitions and focus styles for better accessibility and user experience.
             */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-              <button className="px-8 py-3 bg-blue-700 text-white font-semibold rounded-lg shadow-lg hover:bg-blue-800 transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300">
+              <a href="/order" className="px-8 py-3 bg-blue-700 text-white font-semibold rounded-lg shadow-lg hover:bg-blue-800 transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300 text-center">
                 Order Now
-              </button>
-              <button className="px-8 py-3 bg-transparent border-2 border-blue-700 text-blue-700 font-semibold rounded-lg hover:bg-blue-50 transition-all focus:outline-none focus:ring-4 focus:ring-blue-300">
+              </a>
+              <a href="/dasher" className="px-8 py-3 bg-transparent border-2 border-blue-700 text-blue-700 font-semibold rounded-lg hover:bg-blue-50 transition-all focus:outline-none focus:ring-4 focus:ring-blue-300 text-center">
                 Become a Dasher
-              </button>
+              </a>
             </div>
 
             {/* UI IMPROVEMENT: Increased spacing and refined icon styles */}
