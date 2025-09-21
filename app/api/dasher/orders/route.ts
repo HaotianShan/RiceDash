@@ -21,8 +21,9 @@ export async function GET(request: NextRequest) {
         }
       } else if (typeof order.orderItemsJSON === 'object' && order.orderItemsJSON !== null) {
         // Check if it's the nested structure with items array
-        if (order.orderItemsJSON.items && Array.isArray(order.orderItemsJSON.items)) {
-          orderItems = order.orderItemsJSON.items;
+        const orderItemsObj = order.orderItemsJSON as any;
+        if (orderItemsObj.items && Array.isArray(orderItemsObj.items)) {
+          orderItems = orderItemsObj.items;
         } else {
           orderItems = order.orderItemsJSON;
         }

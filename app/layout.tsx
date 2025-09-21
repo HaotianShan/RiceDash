@@ -58,6 +58,7 @@ export default async function RootLayout({
           content="7R5UVc7ptUwzx5P9DZXqOnF91MLw_24dQe66LsIvuBg"
         />
         <Script
+          id="theme-color-script"
           dangerouslySetInnerHTML={{
             __html: THEME_COLOR_SCRIPT,
           }}
@@ -66,7 +67,7 @@ export default async function RootLayout({
           async
           src="https://www.googletagmanager.com/gtag/js?id=G-VD6CJNQ5C2"
         />
-        <Script>
+        <Script id="google-analytics">
           {`
         window.dataLayer = window.dataLayer || [];
         function gtag(){dataLayer.push(arguments);}

@@ -113,7 +113,7 @@
     "@types/three": "^0.158.3",
     "drizzle-kit": "^0.25.0",
     "eslint": "^9.31.0",
-    "eslint-config-next": "14.2.5",
+    "eslint-config-next": "^15.0.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-import-resolver-typescript": "^3.6.3",
     "eslint-plugin-tailwindcss": "^3.17.5",

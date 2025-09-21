@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { MapPin, User, ShoppingBag } from "lucide-react";
 import { useSession } from "next-auth/react"; // 👈 Import the useSession hook
 import Image from "next/image"; // 👈 Import the Next.js Image component
+import Link from "next/link";
 
 const NavBar = () => {
   // Fetch the user's session data. 'session' will be null if the user is not logged in.
@@ -14,7 +15,7 @@ const NavBar = () => {
     <nav className="bg-white/80 backdrop-blur-md sticky top-0 z-50 w-full border-b border-gray-200">
       <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Logo and Brand Name Section */}
-        <a href="/" className="flex items-center space-x-2">
+        <Link href="/" className="flex items-center space-x-2">
           <div className="flex items-center space-x-2">
             <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg flex items-center justify-center shadow-md">
               <span className="text-white font-bold text-lg">R</span>
@@ -23,7 +24,7 @@ const NavBar = () => {
               RiceDash
             </span>
           </div>
-        </a>
+        </Link>
 
         {/* Right-aligned Buttons and Actions */}
         <div className="flex items-center space-x-2 sm:space-x-3">
@@ -70,10 +71,10 @@ const NavBar = () => {
               size="sm"
               asChild
             >
-              <a href="/api/auth/signin">
+              <Link href="/api/auth/signin">
                 <User className="w-4 h-4 mr-2" />
                 Sign In
-              </a>
+              </Link>
             </Button>
           )}
         </div>

@@ -416,7 +416,7 @@ const MenuDisplay = ({ items, onAddToCart }: { items: MenuItem[]; onAddToCart: (
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-gray-900">Today's Menu</h2>
+        <h2 className="text-lg font-bold text-gray-900">Today&apos;s Menu</h2>
         <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
           {items.length} items
         </span>
