@@ -15,7 +15,7 @@ interface MapSelectorProps {
   className?: string;
   showDirections?: boolean;
   origin?: { lat: number; lng: number } | string;
-  destination?: { lat: number; lng: number };
+  destination?: { lat: number; lng: number } | string;
   travelMode?: 'driving' | 'walking' | 'bicycling' | 'transit';
 }
 

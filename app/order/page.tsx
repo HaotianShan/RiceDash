@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { SessionProvider } from "next-auth/react";
-import { Toaster, toast } from "sonner";
+import { toast } from "sonner";
 import { 
   MapPin, 
   Clock, 
@@ -770,7 +770,6 @@ export default function OrderPage() {
 
   return (
     <>
-      <Toaster position="top-right" />
       <div className="min-h-screen bg-gray-50">
         <SessionProvider>
           <Navbar />

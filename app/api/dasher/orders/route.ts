@@ -44,10 +44,27 @@ export async function GET(request: NextRequest) {
         "West": { lat: 29.7174, lng: -95.4028 },
       };
       
+      // Random phone numbers for demo purposes
+      const randomPhoneNumbers = [
+        "+1 (713) 555-0123",
+        "+1 (281) 555-0456",
+        "+1 (832) 555-0789",
+        "+1 (346) 555-0321",
+        "+1 (409) 555-0654",
+        "+1 (936) 555-0987",
+        "+1 (979) 555-0135",
+        "+1 (254) 555-0468",
+        "+1 (325) 555-0791",
+        "+1 (432) 555-0124"
+      ];
+      
+      // Generate a consistent random phone number based on order ID
+      const phoneIndex = order.id % randomPhoneNumbers.length;
+      
       return {
         id: order.id,
         customerName: `${order.customer.firstName} ${order.customer.lastName}`,
-        customerPhone: order.customer.phoneNumber || "No phone provided",
+        customerPhone: order.customer.phoneNumber || randomPhoneNumbers[phoneIndex],
         serveryName: order.serveryName,
         orderItems: orderItems,
         totalAmount: parseFloat(order.totalAmount),

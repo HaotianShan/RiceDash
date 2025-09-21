@@ -13,7 +13,7 @@ interface GoogleMapProps {
   className?: string;
   showDirections?: boolean;
   origin?: { lat: number; lng: number } | string;
-  destination?: { lat: number; lng: number };
+  destination?: { lat: number; lng: number } | string;
   travelMode?: 'driving' | 'walking' | 'bicycling' | 'transit';
 }
 
@@ -82,7 +82,8 @@ export default function GoogleMap({
         const resolvedOrigin = typeof origin === 'string' ? origin : `${origin.lat},${origin.lng}`;
         params.append('origin', resolvedOrigin);
         const resolvedDestination = destination ?? userLocation!;
-        params.append('destination', `${resolvedDestination.lat},${resolvedDestination.lng}`);
+        const destinationStr = typeof resolvedDestination === 'string' ? resolvedDestination : `${resolvedDestination.lat},${resolvedDestination.lng}`;
+        params.append('destination', destinationStr);
         params.append('mode', travelMode);
         params.append('units', 'imperial'); // Use imperial units for US
       } else {

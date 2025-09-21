@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { SessionProvider } from "next-auth/react";
 import { cn } from "@/lib/utils";
-import { Toaster, toast } from "sonner";
+import { toast } from "sonner";
 
 // UI Components
 import Navbar from "@/components/navbar";
@@ -284,7 +284,7 @@ const OrderDetailPanel = ({ order, onAccept, onComplete, onReject, isAcceptingOr
           <div className="p-3 bg-orange-50 rounded-lg border border-orange-200">
             <div className="flex items-center gap-2 mb-1">
               <Navigation className="w-4 h-4 text-orange-600" />
-              <span className="text-sm font-medium text-orange-800">Est. Delivery</span>
+              <span className="text-sm font-medium text-orange-800">Expires In</span>
             </div>
             <p className="text-sm text-orange-700">{order.estimatedDeliveryTime}</p>
           </div>
@@ -419,7 +419,7 @@ const FullscreenMap = ({
           <MapSelector
             className="w-full h-full"
             showDirections={!!selectedOrder}
-            origin={selectedOrder ? SERVERY_COORDINATES[selectedOrder.serveryName] : undefined}
+            origin={selectedOrder ? (selectedOrder.serveryName === "Baker" ? "Baker College - Housing and Dining Lot" : `${selectedOrder.serveryName} Servery`) : undefined}
             destination={selectedOrder ? selectedOrder.deliveryCoords : undefined}
             travelMode="driving"
             markers={selectedOrder ? [
@@ -538,7 +538,6 @@ export default function DasherDashboard() {
 
   return (
     <>
-      <Toaster position="top-right" />
       <div className="min-h-screen bg-gray-50">
         <SessionProvider><Navbar /></SessionProvider>
         
@@ -635,7 +634,7 @@ export default function DasherDashboard() {
                     <MapSelector
                       className="w-full h-full rounded-b-lg cursor-pointer"
                       showDirections={!!selectedOrder}
-                      origin={selectedOrder ? SERVERY_COORDINATES[selectedOrder.serveryName] : undefined}
+                      origin={selectedOrder ? (selectedOrder.serveryName === "Baker" ? "Baker College - Housing and Dining Lot" : `${selectedOrder.serveryName} Servery`) : undefined}
                       destination={selectedOrder ? selectedOrder.deliveryCoords : undefined}
                       travelMode="driving"
                       markers={selectedOrder ? [
@@ -643,7 +642,6 @@ export default function DasherDashboard() {
                           { position: SERVERY_COORDINATES[selectedOrder.serveryName], label: 'PICKUP', title: `${selectedOrder.serveryName} Servery` },
                           { position: selectedOrder.deliveryCoords, label: 'DROP-OFF', title: selectedOrder.deliveryLocation },
                       ] : [{ position: userLocation, label: 'YOU', title: 'Your Location' }]}
-                      onClick={() => selectedOrder && setIsMapFullscreen(true)}
                     />
                   </CardContent>
                 </Card>
