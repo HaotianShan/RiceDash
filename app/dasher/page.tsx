@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import MapSelector from "@/components/map-selector";
 
 // Icons
-import { MapPin, Clock, User, Phone, ShoppingBag, Navigation, CheckCircle, XCircle, ArrowRight, DollarSign, ListOrdered, RefreshCw, AlertCircle } from "lucide-react";
+import { MapPin, Clock, User, Phone, ShoppingBag, Navigation, CheckCircle, XCircle, ArrowRight, DollarSign, ListOrdered, RefreshCw, AlertCircle, Maximize2, Minimize2, Zap, Target } from "lucide-react";
 
 // --- TYPE DEFINITIONS ---
 interface OrderItem {
@@ -43,99 +43,177 @@ interface Order {
   distance: string;
 }
 
+// Servery coordinates from the database/constants
+const SERVERY_COORDINATES = {
+  "Baker": { lat: 29.7164, lng: -95.4018 },
+  "North": { lat: 29.7184, lng: -95.4018 },
+  "Seibel": { lat: 29.7174, lng: -95.4008 },
+  "South": { lat: 29.7164, lng: -95.4008 },
+  "West": { lat: 29.7174, lng: -95.4028 },
+};
+
 // --- CHILD COMPONENTS ---
 
-// Header with stats and online/offline toggle
-const DashboardHeader = ({ isOnline, onToggle, orderCount, onRefresh, isLoading }: { 
+// Enhanced header with prominent status and earnings
+const DashboardHeader = ({ isOnline, onToggle, orderCount, onRefresh, isLoading, totalEarnings }: { 
   isOnline: boolean; 
   onToggle: (checked: boolean) => void; 
   orderCount: number;
   onRefresh: () => void;
   isLoading: boolean;
+  totalEarnings: number;
 }) => (
-  <div className="mb-6">
-    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Dasher Dashboard</h1>
-        <p className="text-gray-500 mt-1">
-          {isOnline ? `There are ${orderCount} orders from the last 30 minutes.` : "You are offline. Go online to see new orders."}
-        </p>
-      </div>
-      <div className="flex items-center gap-4">
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={onRefresh} 
-          disabled={isLoading}
-          className="flex items-center gap-2"
-        >
-          <RefreshCw className={cn("w-4 h-4", isLoading && "animate-spin")} />
-          Refresh
-        </Button>
-        <div className="flex items-center gap-4 p-3 bg-white border rounded-lg">
-          <div className="flex items-center space-x-2">
-            <div className={cn("w-3 h-3 rounded-full transition-colors", isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500')} />
-            <Label htmlFor="online-status" className="font-medium">{isOnline ? 'Online' : 'Offline'}</Label>
+  <div className="mb-8">
+    {/* Main Status Bar */}
+    <div className={cn(
+      "relative overflow-hidden rounded-2xl p-6 mb-6 transition-all duration-500",
+      isOnline 
+        ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg shadow-green-500/25" 
+        : "bg-gradient-to-r from-gray-400 to-gray-500 text-white"
+    )}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className={cn(
+            "p-3 rounded-xl",
+            isOnline ? "bg-white/20 backdrop-blur-sm" : "bg-white/10"
+          )}>
+            <Zap className={cn("w-8 h-8", isOnline && "animate-pulse")} />
           </div>
-          <Switch id="online-status" checked={isOnline} onCheckedChange={onToggle} />
+          <div>
+            <h1 className="text-2xl font-bold">
+              {isOnline ? "You're Online & Ready!" : "You're Offline"}
+            </h1>
+            <p className="text-white/90 mt-1">
+              {isOnline 
+                ? `${orderCount} orders available • Ready to deliver` 
+                : "Go online to start receiving orders"
+              }
+            </p>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-4">
+          {isOnline && (
+            <div className="text-right">
+              <p className="text-white/80 text-sm">Today's Earnings</p>
+              <p className="text-3xl font-bold">${totalEarnings.toFixed(2)}</p>
+            </div>
+          )}
+          <div className="flex items-center gap-3">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={onRefresh} 
+              disabled={isLoading}
+              className={cn(
+                "flex items-center gap-2 border-white/30 text-white hover:bg-white/10",
+                isOnline ? "bg-white/10" : "bg-white/5"
+              )}
+            >
+              <RefreshCw className={cn("w-4 h-4", isLoading && "animate-spin")} />
+              Refresh
+            </Button>
+            <div className="flex items-center gap-3 p-3 bg-white/10 backdrop-blur-sm rounded-xl">
+              <div className="flex items-center space-x-2">
+                <div className={cn("w-3 h-3 rounded-full", isOnline ? 'bg-green-300 animate-pulse' : 'bg-red-300')} />
+                <Label htmlFor="online-status" className="font-medium text-white">
+                  {isOnline ? 'Online' : 'Offline'}
+                </Label>
+              </div>
+              <Switch 
+                id="online-status" 
+                checked={isOnline} 
+                onCheckedChange={onToggle}
+              />
+            </div>
+          </div>
         </div>
       </div>
     </div>
-    <Separator className="mt-6" />
   </div>
 );
 
-// A single compact item in the order queue
+// Enhanced order queue item with better visual hierarchy
 const OrderQueueItem = ({ order, isSelected, onSelect }: { order: Order; isSelected: boolean; onSelect: () => void; }) => (
   <button
     onClick={onSelect}
     className={cn(
-      "w-full text-left p-4 border rounded-lg transition-all duration-200",
-      isSelected ? "bg-blue-50 border-blue-400 shadow-md" : "bg-white hover:bg-gray-50 hover:border-gray-300"
+      "w-full text-left p-5 border-2 rounded-xl transition-all duration-300 group",
+      isSelected 
+        ? "bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-400 shadow-lg shadow-blue-100" 
+        : "bg-white hover:bg-gray-50 hover:border-gray-300 hover:shadow-md"
     )}
   >
-    <div className="flex items-center justify-between mb-3">
+    {/* Header with earnings and status */}
+    <div className="flex items-center justify-between mb-4">
       <div className="flex items-center gap-3">
-        <p className="font-bold text-lg text-green-600">${order.totalAmount.toFixed(2)}</p>
+        <div className={cn(
+          "px-4 py-2 rounded-lg font-bold text-xl",
+          isSelected ? "bg-green-100 text-green-700" : "bg-green-50 text-green-600"
+        )}>
+          ${order.totalAmount.toFixed(2)}
+        </div>
         <Badge 
           variant={
             order.status === "Pending" ? "default" : 
             order.status === "Accepted" ? "secondary" : 
             "outline"
           }
+          className={cn(
+            order.status === "Pending" && "bg-orange-100 text-orange-700 border-orange-200"
+          )}
         >
           {order.status}
         </Badge>
       </div>
       <div className="text-right">
-        <p className="text-xs text-gray-500">{order.minutesAgo}m ago</p>
-        <p className="text-xs text-gray-400">{new Date(order.orderTimestamp).toLocaleTimeString()}</p>
+        <div className={cn(
+          "text-sm font-medium",
+          order.minutesAgo <= 5 ? "text-red-600" : order.minutesAgo <= 15 ? "text-orange-600" : "text-gray-500"
+        )}>
+          {order.minutesAgo}m ago
+        </div>
+        <div className="text-xs text-gray-400">
+          {new Date(order.orderTimestamp).toLocaleTimeString()}
+        </div>
       </div>
     </div>
     
-    <div className="space-y-2 text-sm">
-      <div className="flex items-center gap-2 text-gray-700">
-        <MapPin className="w-4 h-4 text-blue-500" />
-        <span className="font-medium">{order.serveryName} Servery</span>
+    {/* Route information - most important */}
+    <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+      <div className="flex items-center gap-3 text-gray-700">
+        <div className="flex items-center gap-2">
+          <Target className="w-4 h-4 text-blue-500" />
+          <span className="font-semibold">{order.serveryName} Servery</span>
+        </div>
         <ArrowRight className="w-4 h-4 text-gray-400" />
-        <span className="font-medium truncate">{order.deliveryLocation}</span>
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <MapPin className="w-4 h-4 text-green-500 flex-shrink-0" />
+          <span className="font-medium truncate">{order.deliveryLocation}</span>
+        </div>
       </div>
-      
-      <div className="flex items-center gap-4 text-gray-500">
+    </div>
+    
+    {/* Quick stats */}
+    <div className="flex items-center justify-between text-sm">
+      <div className="flex items-center gap-4 text-gray-600">
         <div className="flex items-center gap-1.5">
           <Clock className="w-4 h-4" /> 
-          {order.estimatedDeliveryTime}
+          <span className="font-medium">{order.estimatedDeliveryTime}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <Navigation className="w-4 h-4" /> 
-          {order.distance}
-        </div>
-        <div className="flex items-center gap-1.5">
-          <ShoppingBag className="w-4 h-4" /> 
-          {order.orderItems.length} items
+          <span className="font-medium">{order.distance}</span>
         </div>
       </div>
-      
+      <div className="flex items-center gap-2 text-gray-500">
+        <ShoppingBag className="w-4 h-4" />
+        <span className="font-medium">{order.orderItems.length} items</span>
+      </div>
+    </div>
+    
+    {/* Customer info */}
+    <div className="mt-3 pt-3 border-t border-gray-100">
       <div className="flex items-center gap-2 text-gray-600">
         <User className="w-4 h-4" />
         <span className="font-medium">{order.customerName}</span>
@@ -143,7 +221,7 @@ const OrderQueueItem = ({ order, isSelected, onSelect }: { order: Order; isSelec
           <>
             <span className="text-gray-400">•</span>
             <Phone className="w-4 h-4" />
-            <span className="text-xs">{order.customerPhone}</span>
+            <span className="text-sm">{order.customerPhone}</span>
           </>
         )}
       </div>
@@ -152,11 +230,12 @@ const OrderQueueItem = ({ order, isSelected, onSelect }: { order: Order; isSelec
 );
 
 // The panel showing full details of the selected order
-const OrderDetailPanel = ({ order, onAccept, onComplete, onReject }: {
+const OrderDetailPanel = ({ order, onAccept, onComplete, onReject, isAcceptingOrder }: {
   order: Order | null;
   onAccept: (id: string) => void;
   onComplete: (id: string) => void;
   onReject: (id: string) => void;
+  isAcceptingOrder: boolean;
 }) => {
   if (!order) {
     return (
@@ -243,15 +322,8 @@ const OrderDetailPanel = ({ order, onAccept, onComplete, onReject }: {
           </h4>
           <div className="space-y-2">
             {order.orderItems.map((item, index) => (
-              <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-md border">
-                <div>
-                  <span className="font-medium">{item.quantity}x {item.name}</span>
-                </div>
-                {item.price && (
-                  <span className="font-medium text-gray-600">
-                    ${(item.price * item.quantity).toFixed(2)}
-                  </span>
-                )}
+              <div key={index} className="p-3 bg-gray-50 rounded-md border">
+                <span className="font-medium">{item.quantity}x {item.name}</span>
               </div>
             ))}
           </div>
@@ -271,8 +343,13 @@ const OrderDetailPanel = ({ order, onAccept, onComplete, onReject }: {
       <div className="p-4 border-t bg-gray-50/50">
         {order.status === "Pending" && (
           <div className="flex gap-3">
-            <Button onClick={() => onAccept(order.id)} className="flex-1 bg-green-600 hover:bg-green-700">
-              <CheckCircle className="w-4 h-4 mr-2" /> Accept Order
+            <Button 
+              onClick={() => onAccept(order.id)} 
+              disabled={isAcceptingOrder}
+              className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-50"
+            >
+              <CheckCircle className="w-4 h-4 mr-2" /> 
+              {isAcceptingOrder ? "Accepting..." : "Accept Order"}
             </Button>
             <Button onClick={() => onReject(order.id)} variant="outline">
               <XCircle className="w-4 h-4 mr-2" /> Reject
@@ -297,15 +374,84 @@ const OrderDetailPanel = ({ order, onAccept, onComplete, onReject }: {
   );
 };
 
+// Fullscreen Map Component
+const FullscreenMap = ({ 
+  isOpen, 
+  onClose, 
+  selectedOrder, 
+  userLocation 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  selectedOrder: Order | null;
+  userLocation: { lat: number; lng: number };
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="relative w-full h-full max-w-7xl max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="absolute top-0 left-0 right-0 z-10 bg-white/95 backdrop-blur-sm border-b p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xl font-bold text-gray-900">Delivery Route</h3>
+              {selectedOrder && (
+                <p className="text-sm text-gray-600">
+                  {selectedOrder.serveryName} Servery → {selectedOrder.deliveryLocation}
+                </p>
+              )}
+            </div>
+            <Button
+              onClick={onClose}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <Minimize2 className="w-4 h-4" />
+              Close
+            </Button>
+          </div>
+        </div>
+        
+        {/* Map */}
+        <div className="w-full h-full pt-16">
+          <MapSelector
+            className="w-full h-full"
+            showDirections={!!selectedOrder}
+            origin={selectedOrder ? SERVERY_COORDINATES[selectedOrder.serveryName] : undefined}
+            destination={selectedOrder ? selectedOrder.deliveryCoords : undefined}
+            travelMode="driving"
+            markers={selectedOrder ? [
+              { position: userLocation, label: 'YOU', title: 'Your Location' },
+              { position: SERVERY_COORDINATES[selectedOrder.serveryName], label: 'PICKUP', title: `${selectedOrder.serveryName} Servery` },
+              { position: selectedOrder.deliveryCoords, label: 'DROP-OFF', title: selectedOrder.deliveryLocation },
+            ] : [{ position: userLocation, label: 'YOU', title: 'Your Location' }]}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- MAIN PAGE COMPONENT ---
 export default function DasherDashboard() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isMapFullscreen, setIsMapFullscreen] = useState(false);
   const [userLocation, setUserLocation] = useState({ lat: 29.7174, lng: -95.4018 }); // Default Rice Uni
+  const [isAcceptingOrder, setIsAcceptingOrder] = useState(false);
 
   const selectedOrder = useMemo(() => orders.find(o => o.id === selectedOrderId), [orders, selectedOrderId]);
+  
+  // Calculate total earnings for today
+  const totalEarnings = useMemo(() => {
+    return orders
+      .filter(order => order.status === "Delivered")
+      .reduce((sum, order) => sum + order.totalAmount, 0);
+  }, [orders]);
 
   // Fetch orders from API
   const fetchOrders = async () => {
@@ -347,6 +493,9 @@ export default function DasherDashboard() {
 
   // Actions
   const handleAcceptOrder = async (orderId: string) => {
+    if (isAcceptingOrder) return; // Prevent double clicks
+    
+    setIsAcceptingOrder(true);
     try {
       // Here you would call your API to accept the order
       // For now, we'll just update the local state
@@ -354,12 +503,15 @@ export default function DasherDashboard() {
       toast.success("Order accepted successfully!");
     } catch (error) {
       toast.error("Failed to accept order");
+    } finally {
+      setIsAcceptingOrder(false);
     }
   };
 
   const handleCompleteOrder = async (orderId: string) => {
     try {
       // Here you would call your API to complete the order
+      // The order will be removed from the database, so we remove it from local state
       setOrders(orders.filter(o => o.id !== orderId));
       setSelectedOrderId(orders.length > 1 ? orders.filter(o => o.id !== orderId)[0].id : null);
       toast.success("Order marked as delivered!");
@@ -397,22 +549,28 @@ export default function DasherDashboard() {
             orderCount={isOnline ? sortedOrders.length : 0}
             onRefresh={fetchOrders}
             isLoading={isLoading}
+            totalEarnings={totalEarnings}
           />
           
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-220px)]">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-280px)]">
             
             {/* Left Panel: Order Queue */}
             <div className="lg:col-span-1 h-full">
-              <Card className="h-full flex flex-col shadow-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    Recent Orders
+              <Card className="h-full flex flex-col shadow-lg border-0">
+                <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
+                  <CardTitle className="flex items-center justify-between text-lg">
+                    <span className="flex items-center gap-2">
+                      <ListOrdered className="w-5 h-5 text-blue-600" />
+                      Available Orders
+                    </span>
                     {isOnline && sortedOrders.length > 0 && (
-                      <Badge variant="secondary">{sortedOrders.length}</Badge>
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+                        {sortedOrders.length}
+                      </Badge>
                     )}
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="flex-1 overflow-y-auto space-y-3 p-3">
+                <CardContent className="flex-1 overflow-y-auto space-y-4 p-4">
                   {isLoading ? (
                     <div className="text-center pt-16">
                       <RefreshCw className="w-8 h-8 text-gray-400 mx-auto mb-4 animate-spin" />
@@ -453,25 +611,39 @@ export default function DasherDashboard() {
                 />
               </div>
               <div className="row-span-1">
-                <Card className="h-full shadow-sm">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <MapPin className="w-5 h-5" />
-                      Delivery Route
+                <Card className="h-full shadow-lg border-0">
+                  <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 border-b">
+                    <CardTitle className="flex items-center justify-between">
+                      <span className="flex items-center gap-2 text-lg">
+                        <MapPin className="w-5 h-5 text-green-600" />
+                        Delivery Route
+                      </span>
+                      {selectedOrder && (
+                        <Button
+                          onClick={() => setIsMapFullscreen(true)}
+                          variant="outline"
+                          size="sm"
+                          className="flex items-center gap-2"
+                        >
+                          <Maximize2 className="w-4 h-4" />
+                          Fullscreen
+                        </Button>
+                      )}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-0">
                     <MapSelector
-                      className="w-full h-full rounded-b-lg"
+                      className="w-full h-full rounded-b-lg cursor-pointer"
                       showDirections={!!selectedOrder}
-                      origin={selectedOrder ? userLocation : undefined}
-                      destination={selectedOrder ? selectedOrder.pickupCoords : undefined}
+                      origin={selectedOrder ? SERVERY_COORDINATES[selectedOrder.serveryName] : undefined}
+                      destination={selectedOrder ? selectedOrder.deliveryCoords : undefined}
                       travelMode="driving"
                       markers={selectedOrder ? [
                           { position: userLocation, label: 'YOU', title: 'Your Location' },
-                          { position: selectedOrder.pickupCoords, label: 'PICKUP', title: `${selectedOrder.serveryName} Servery` },
+                          { position: SERVERY_COORDINATES[selectedOrder.serveryName], label: 'PICKUP', title: `${selectedOrder.serveryName} Servery` },
                           { position: selectedOrder.deliveryCoords, label: 'DROP-OFF', title: selectedOrder.deliveryLocation },
                       ] : [{ position: userLocation, label: 'YOU', title: 'Your Location' }]}
+                      onClick={() => selectedOrder && setIsMapFullscreen(true)}
                     />
                   </CardContent>
                 </Card>
@@ -479,6 +651,14 @@ export default function DasherDashboard() {
             </div>
           </div>
         </main>
+        
+        {/* Fullscreen Map Modal */}
+        <FullscreenMap
+          isOpen={isMapFullscreen}
+          onClose={() => setIsMapFullscreen(false)}
+          selectedOrder={selectedOrder ?? null}
+          userLocation={userLocation}
+        />
       </div>
     </>
   );

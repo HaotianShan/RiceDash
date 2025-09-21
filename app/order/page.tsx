@@ -666,17 +666,28 @@ export default function OrderPage() {
   }
 
   useEffect(() => {
-    if (!selectedServery || !userLocation) {
-      setDistanceMiles(null);
-      return;
-    }
-    const servery = RICE_SERVERIES.find(s => s.name.includes(selectedServery));
-    if (!servery) {
-      setDistanceMiles(null);
-      return;
-    }
-    setIsDistanceLoading(true);
-    (async () => {
+    let isCancelled = false;
+    
+    const calculateDistance = async () => {
+      if (!selectedServery || !userLocation) {
+        if (!isCancelled) {
+          setDistanceMiles(null);
+        }
+        return;
+      }
+      
+      const servery = RICE_SERVERIES.find(s => s.name.includes(selectedServery));
+      if (!servery) {
+        if (!isCancelled) {
+          setDistanceMiles(null);
+        }
+        return;
+      }
+      
+      if (!isCancelled) {
+        setIsDistanceLoading(true);
+      }
+      
       try {
         // Prefer route distance from API
         const origin = selectedServery === "Baker" ? "Baker College - Housing and Dining Lot" : `${selectedServery} Servery`;
@@ -685,26 +696,39 @@ export default function OrderPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ origin, destination: userLocation, mode: "walking" })
         });
-        if (res.ok) {
-          const data = await res.json();
-          const milesFromApi: number | undefined = data?.distance?.miles;
-          if (typeof milesFromApi === "number" && !Number.isNaN(milesFromApi)) {
-            setDistanceMiles(milesFromApi);
+        
+        if (!isCancelled) {
+          if (res.ok) {
+            const data = await res.json();
+            const milesFromApi: number | undefined = data?.distance?.miles;
+            if (typeof milesFromApi === "number" && !Number.isNaN(milesFromApi)) {
+              setDistanceMiles(milesFromApi);
+            } else {
+              const milesFallback = haversineMiles(servery.position, userLocation);
+              setDistanceMiles(milesFallback);
+            }
           } else {
             const milesFallback = haversineMiles(servery.position, userLocation);
             setDistanceMiles(milesFallback);
           }
-        } else {
+        }
+      } catch {
+        if (!isCancelled) {
           const milesFallback = haversineMiles(servery.position, userLocation);
           setDistanceMiles(milesFallback);
         }
-      } catch {
-        const milesFallback = haversineMiles(servery.position, userLocation);
-        setDistanceMiles(milesFallback);
       } finally {
-        setIsDistanceLoading(false);
+        if (!isCancelled) {
+          setIsDistanceLoading(false);
+        }
       }
-    })();
+    };
+    
+    calculateDistance();
+    
+    return () => {
+      isCancelled = true;
+    };
   }, [selectedServery, userLocation]);
 
   const deliveryPrice = useMemo(() => calculateDeliveryPrice(distanceMiles), [distanceMiles]);

@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       const timeSinceOrder = Date.now() - new Date(order.orderTimestamp).getTime();
       const minutesAgo = Math.floor(timeSinceOrder / (1000 * 60));
       
-      // Get servery coordinates (you might want to move this to a constants file)
+      // Servery coordinates from database/constants
       const serveryCoords = {
         "Baker": { lat: 29.7164, lng: -95.4018 },
         "North": { lat: 29.7184, lng: -95.4018 },
@@ -58,6 +58,7 @@ export async function GET(request: NextRequest) {
         minutesAgo,
         pickupCoords: serveryCoords[order.serveryName],
         // For now, we'll use a default delivery location - you might want to implement proper geocoding
+        // In a real app, this would come from the customer's address or location data
         deliveryCoords: { lat: 29.7174, lng: -95.4018 }, // Default Rice location
         estimatedDeliveryTime: `${Math.max(5, Math.floor(Math.random() * 20) + 10)} mins`,
         distance: `${(Math.random() * 0.8 + 0.2).toFixed(1)} miles`,
